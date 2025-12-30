@@ -5,23 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
     public function index()
     {
-        $orders = Auth::user()->orders()->latest()->get();
+        $orders = Order::where('user_id', auth()->id())
+            ->latest()
+            ->paginate(10);
 
         return view('orders.index', compact('orders'));
     }
 
     public function show(Order $order)
     {
-        if ($order->user_id !== Auth::id()) {
-            abort(403);
-        }
+        // Ensure user can only see his own orders
+        abort_if($order->user_id !== auth()->id(), 403);
 
         $order->load('items.product');
 
@@ -30,52 +29,39 @@ class OrderController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'payment_method' => 'required|in:cash,card',
-            'address'        => 'required|string|max:255',
-        ]);
-
-        $cart = session()->get('cart', []);
+        $cart = session('cart', []);
 
         if (empty($cart)) {
             return redirect()->route('cart.index')
-                ->with('error', 'Your cart is empty.');
+                ->with('success', 'Your cart is empty.');
         }
 
-        DB::beginTransaction();
+        $total = collect($cart)->sum(function ($item) {
+            return $item['price'] * $item['quantity'];
+        });
 
-        try {
-            $total = collect($cart)->sum(function ($item) {
-                return $item['price'] * $item['quantity'];
-            });
+        // Simple: assume payment method "cash" for now
+        $order = Order::create([
+            'user_id'        => auth()->id(),
+            'total'   => $total,     // change to 'total' if that's your column
+            'status'         => 'pending',
+            'payment_method' => 'cash',
+        ]);
 
-            $order = Order::create([
-                'user_id'        => Auth::id(),
-                'total'          => $total,
-                'status'         => 'pending',
-                'payment_method' => $request->payment_method,
-                'address'        => $request->address,
+        foreach ($cart as $item) {
+            OrderItem::create([
+                'order_id'   => $order->id,
+                'product_id' => $item['id'],
+                'quantity'   => $item['quantity'],
+                'unit_price' => $item['price'],
+                'line_total' => $item['price'] * $item['quantity'],
             ]);
-
-            foreach ($cart as $productId => $item) {
-                OrderItem::create([
-                    'order_id'  => $order->id,
-                    'product_id'=> $productId,
-                    'quantity'  => $item['quantity'],
-                    'price'     => $item['price'],
-                ]);
-            }
-
-            DB::commit();
-            session()->forget('cart');
-
-            return redirect()->route('orders.index')
-                ->with('success', 'Order placed successfully!');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-
-            return redirect()->route('cart.index')
-                ->with('error', 'Something went wrong. Please try again.');
         }
+
+        // Clear cart
+        session()->forget('cart');
+
+        return redirect()->route('orders.show', $order)
+            ->with('success', 'Order placed successfully.');
     }
 }

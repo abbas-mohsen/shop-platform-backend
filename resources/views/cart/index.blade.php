@@ -13,7 +13,6 @@
     @endif
 
     @php
-        // Make sure we always have the same structure as in CartController
         $cart = $cart ?? session('cart', []);
     @endphp
 
@@ -35,7 +34,12 @@
             <tbody>
             @foreach($cart as $productId => $item)
                 @php
-                    $availableSizes = $item['available_sizes'] ?? [];
+                    // Sizes always as array
+                    $availableSizes = $item['sizes'] ?? [];
+                    if (!is_array($availableSizes)) {
+                        $availableSizes = array_filter(array_map('trim', explode(',', $availableSizes)));
+                    }
+                    $currentSize = $item['size'] ?? null;
                 @endphp
 
                 <tr>
@@ -65,8 +69,10 @@
 
                     {{-- Current size --}}
                     <td>
-                        @if(!empty($availableSizes))
-                            {{ $item['size'] ?? '-' }}
+                        @if($currentSize)
+                            {{ $currentSize }}
+                        @elseif(!empty($availableSizes))
+                            -
                         @else
                             N/A
                         @endif
@@ -75,7 +81,7 @@
                     {{-- Price --}}
                     <td>${{ number_format($item['price'], 2) }}</td>
 
-                    {{-- Quantity + change size (only from allowed sizes) --}}
+                    {{-- Quantity + size selector --}}
                     <td>
                         <form action="{{ route('cart.update', $productId) }}"
                               method="POST" class="d-flex align-items-center">
@@ -95,13 +101,12 @@
                                     <option value="">Size</option>
                                     @foreach($availableSizes as $size)
                                         <option value="{{ $size }}"
-                                            {{ ($item['size'] ?? '') === $size ? 'selected' : '' }}>
+                                            {{ $currentSize === $size ? 'selected' : '' }}>
                                             {{ $size }}
                                         </option>
                                     @endforeach
                                 </select>
                             @else
-                                {{-- No size for this product --}}
                                 <input type="hidden" name="size" value="">
                             @endif
 

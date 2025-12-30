@@ -15,6 +15,23 @@
 
 <div class="row g-3">
     @forelse($products as $product)
+        @php
+            // Normalize sizes to a clean array
+            $sizes = [];
+
+            if (is_array($product->sizes)) {
+                $sizes = $product->sizes;
+            } elseif (!empty($product->sizes)) {
+                // if stored as comma-separated string
+                $sizes = explode(',', $product->sizes);
+            } elseif (!empty($product->size)) {
+                // fallback to single size column if you still use it
+                $sizes = [$product->size];
+            }
+
+            $sizes = array_values(array_unique(array_filter(array_map('trim', $sizes))));
+        @endphp
+
         <div class="col-6 col-md-3">
             <div class="card h-100 shadow-sm">
                 @if($product->image)
@@ -39,31 +56,29 @@
                     </p>
 
                     <p class="mb-1">
-    <strong>Sizes:</strong>
-    @if(!empty($product->sizes))
-        {{ implode(', ', $product->sizes) }}
-    @else
-        N/A
-    @endif
-</p>
+                        <strong>Sizes:</strong>
+                        @if(count($sizes))
+                            {{ implode(', ', $sizes) }}
+                        @else
+                            N/A
+                        @endif
+                    </p>
 
-
-                    {{-- ADD TO CART FORM GOES HERE --}}
+                    {{-- ADD TO CART FORM – uses ONLY available sizes --}}
                     <form action="{{ route('cart.add', $product->id) }}" method="POST" class="mb-2">
                         @csrf
 
-                        <div class="mb-2">
-                            <label class="form-label">Size (optional)</label>
-                            <select name="size" class="form-select form-select-sm">
-                                <option value="">Select size</option>
-                                <option value="S">S</option>
-                                <option value="M">M</option>
-                                <option value="L">L</option>
-                                <option value="XL">XL</option>
-                                <option value="XXL">XXL</option>
-                                <option value="One Size">One Size</option>
-                            </select>
-                        </div>
+                        @if(count($sizes))
+                            <div class="mb-2">
+                                <label class="form-label">Size</label>
+                                <select name="size" class="form-select form-select-sm" required>
+                                    <option value="">Select size</option>
+                                    @foreach($sizes as $size)
+                                        <option value="{{ $size }}">{{ $size }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
 
                         <div class="mb-2">
                             <label class="form-label">Quantity</label>

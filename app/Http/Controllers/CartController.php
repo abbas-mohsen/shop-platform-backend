@@ -23,19 +23,21 @@ class CartController extends Controller
 
     public function add(Request $request, Product $product)
     {
-        $Sizes = $product->sizes_array;
+        // Allowed sizes for THIS product
+        $availableSizes = $product->sizes_list;   // <- accessor from Product model
 
-        // Validate size ONLY against this product's allowed sizes
         $request->validate([
             'quantity' => ['required', 'integer', 'min:1'],
             'size'     => [
                 'nullable',
                 function ($attribute, $value, $fail) use ($availableSizes) {
+                    // If the product has sizes configured, user must pick one of them
                     if (!empty($availableSizes)) {
                         if (!$value) {
-                            $fail('Please choose a size.');
-                        } elseif (!in_array($value, $availableSizes)) {
-                            $fail('Selected size is not available for this product.');
+                            return $fail('Please choose a size.');
+                        }
+                        if (!in_array($value, $availableSizes)) {
+                            return $fail('Selected size is not available for this product.');
                         }
                     }
                 },
@@ -44,21 +46,19 @@ class CartController extends Controller
 
         $cart = session()->get('cart', []);
 
-        $productId = $product->id;
-        $size = $request->input('size');
-
-        // If item already exists, just increase quantity
-        $quantityToAdd = (int) $request->input('quantity', 1);
-        $currentQty    = isset($cart[$productId]) ? $cart[$productId]['quantity'] : 0;
+        $productId      = $product->id;
+        $size           = $request->input('size');
+        $quantityToAdd  = max(1, (int) $request->input('quantity', 1));
+        $currentQty     = $cart[$productId]['quantity'] ?? 0;
 
         $cart[$productId] = [
-            'id'              => $product->id,
-            'name'            => $product->name,
-            'price'           => $product->price,
-            'image'           => $product->image,
-            'size'            => $size,
-            'sizes'           => $Sizes,
-            'quantity'        => $currentQty + $quantityToAdd,
+            'id'       => $product->id,
+            'name'     => $product->name,
+            'price'    => $product->price,
+            'image'    => $product->image,
+            'size'     => $size,
+            'sizes'    => $availableSizes,  // store allowed sizes in cart item
+            'quantity' => $currentQty + $quantityToAdd,
         ];
 
         session()->put('cart', $cart);
@@ -76,7 +76,7 @@ class CartController extends Controller
         }
 
         $product        = Product::findOrFail($productId);
-        $Sizes = $product->sizes_array;
+        $availableSizes = $product->sizes_list;
 
         $request->validate([
             'quantity' => ['required', 'integer', 'min:1'],
@@ -85,18 +85,19 @@ class CartController extends Controller
                 function ($attribute, $value, $fail) use ($availableSizes) {
                     if (!empty($availableSizes)) {
                         if (!$value) {
-                            $fail('Please choose a size.');
-                        } elseif (!in_array($value, $availableSizes)) {
-                            $fail('Selected size is not available for this product.');
+                            return $fail('Please choose a size.');
+                        }
+                        if (!in_array($value, $availableSizes)) {
+                            return $fail('Selected size is not available for this product.');
                         }
                     }
                 },
             ],
         ]);
 
-        $cart[$productId]['quantity']        = (int) $request->input('quantity');
-        $cart[$productId]['size']            = $request->input('size');
-        $cart[$productId]['sizes'] = $Sizes;
+        $cart[$productId]['quantity'] = (int) $request->input('quantity');
+        $cart[$productId]['size']     = $request->input('size');
+        $cart[$productId]['sizes']    = $availableSizes;
 
         session()->put('cart', $cart);
 

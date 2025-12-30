@@ -23,13 +23,27 @@ class Product extends Model
         'sizes' => 'array',
     ];
 
-    public function getSizesArrayAttribute()
+    public function getAvailableSizesAttribute(): array
     {
-        if (!$this->sizes) {
+        $raw = $this->attributes['sizes'] ?? null;
+
+        if ($raw === null || $raw === '') {
             return [];
         }
 
-        return array_filter(array_map('trim', explode(',', $this->sizes)));
+        // If the DB still has old comma-separated strings, handle them:
+        if (is_string($raw)) {
+            $parts = array_map('trim', explode(',', $raw));
+        } elseif (is_array($raw)) {
+            $parts = $raw;
+        } else {
+            return [];
+        }
+
+        // Remove empty duplicates and re-index.
+        $parts = array_unique(array_filter($parts, fn ($v) => $v !== ''));
+
+        return array_values($parts);
     }
 
     // Each product belongs to one category
