@@ -18,12 +18,6 @@
                         <a href="{{ route('products.index') }}" class="btn btn-light btn-lg fw-semibold px-4">
                             Start Shopping
                         </a>
-
-                        <!-- @auth
-                            <a href="{{ route('orders.index') }}" class="btn btn-outline-light btn-lg px-4">
-                                My Orders
-                            </a>
-                        @endauth -->
                     </div>
                 </div>
 
