@@ -28,6 +28,22 @@ Route::get('/home', function () {
 
 Auth::routes();
 
+Route::get('/api/me', function (Request $request) {
+    if (!auth()->check()) {
+        return response()->json(null, 200);
+    }
+
+    $user = auth()->user();
+
+    return response()->json([
+        'id'       => $user->id,
+        'name'     => $user->name,
+        'email'    => $user->email,
+        'role'     => $user->role,      // "customer" or "admin"
+        'is_admin' => (bool) $user->is_admin,
+    ]);
+});
+
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');
 Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
 
