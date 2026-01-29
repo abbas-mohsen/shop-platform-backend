@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ProductApiController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdminOrderApiController;
 use App\Http\Controllers\Api\CategoryApiController;
+use App\Http\Controllers\Api\AdminProductApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,9 +33,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     Route::middleware('admin')->prefix('admin')->group(function () {
-    Route::get('/orders', [AdminOrderApiController::class, 'index']);
-    Route::put('/orders/{order}', [AdminOrderApiController::class, 'updateStatus']);
-});
+        Route::get('/orders', [AdminOrderApiController::class, 'index']);
+        Route::put('/orders/{order}', [AdminOrderApiController::class, 'updateStatus']);
+        Route::get   ('/products',           [AdminProductApiController::class, 'index']);
+        Route::get   ('/products/{product}', [AdminProductApiController::class, 'show']);
+        Route::post  ('/products',           [AdminProductApiController::class, 'store']);
+        Route::post  ('/products/{product}', [AdminProductApiController::class, 'update']); // using POST for update
+        Route::delete('/products/{product}', [AdminProductApiController::class, 'destroy']);
+    });
 
     Route::post('/logout', [AuthController::class, 'logout']);
 });
