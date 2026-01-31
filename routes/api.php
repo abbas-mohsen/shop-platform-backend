@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdminOrderApiController;
 use App\Http\Controllers\Api\CategoryApiController;
 use App\Http\Controllers\Api\AdminProductApiController;
+use App\Http\Controllers\Api\OrderApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,6 +31,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+
+    Route::post('/checkout', [OrderApiController::class, 'checkout']);
+
+    Route::get('/my-orders', [OrderApiController::class, 'myOrders']);
+    Route::get('/my-orders/{order}', [OrderApiController::class, 'showMyOrder']);
 
 
     Route::middleware('admin')->prefix('admin')->group(function () {
