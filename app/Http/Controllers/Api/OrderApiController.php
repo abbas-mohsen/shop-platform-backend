@@ -35,120 +35,126 @@ class OrderApiController extends Controller
      *   to match your old working OrderController (where payment_method was "cash" or "card").
      */
     public function checkout(Request $request)
-    {
-        $user = $request->user();
+{
+    $user = $request->user(); // Sanctum user
 
-        if (!$user) {
-            return response()->json([
-                'message' => 'Unauthenticated.',
-            ], 401);
+    // 1) Validate payload
+    $validated = $request->validate([
+        'address'         => ['required', 'string', 'max:500'],
+        'payment_method'  => ['required', 'in:cod,card'],
+        'items'           => ['required', 'array', 'min:1'],
+        'items.*.product_id' => ['required', 'exists:products,id'],
+        'items.*.quantity'   => ['required', 'integer', 'min:1'],
+        'items.*.size'       => ['nullable', 'string', 'max:20'],
+    ]);
+
+    $items = $validated['items'];
+
+    return DB::transaction(function () use ($validated, $items, $user) {
+        $orderTotal   = 0;
+        $preparedItems = [];
+
+        // 2) Validate stock and calculate totals
+        foreach ($items as $item) {
+            $productId = $item['product_id'];
+            $qty       = (int) $item['quantity'];
+            $size      = $item['size'] ?? null;
+
+            /** @var Product $product */
+            $product = Product::lockForUpdate()->findOrFail($productId);
+
+            $sizesStock = $product->sizes_stock ?? [];
+            $perSizeAvailable = null;
+
+            // If a size is specified and exists in sizes_stock, use that
+            if ($size && is_array($sizesStock) && array_key_exists($size, $sizesStock)) {
+                $perSizeAvailable = (int) $sizesStock[$size];
+
+                if ($perSizeAvailable < $qty) {
+                    return response()->json([
+                        'message' => 'Not enough stock for this size.',
+                        'error'   => "Not enough stock for size {$size} of product {$product->name}",
+                    ], 422);
+                }
+            } else {
+                // Fall back to global stock if set
+                if (!is_null($product->stock) && $product->stock < $qty) {
+                    return response()->json([
+                        'message' => 'Not enough stock for this product.',
+                        'error'   => "Not enough stock for product {$product->name}",
+                    ], 422);
+                }
+            }
+
+            $unitPrice = $product->price;
+            $lineTotal = $unitPrice * $qty;
+            $orderTotal += $lineTotal;
+
+            $preparedItems[] = [
+                'product'    => $product,
+                'product_id' => $product->id,
+                'size'       => $size,
+                'quantity'   => $qty,
+                'unit_price' => $unitPrice,
+                'line_total' => $lineTotal,
+            ];
         }
 
-        try {
-            // 1) Validate incoming request
-            $validated = $request->validate([
-                'address' => ['required', 'string', 'max:500'],
-                // Frontend sends "cod" or "card"
-                'payment_method' => ['required', 'in:cod,card'],
-                'items' => ['required', 'array', 'min:1'],
-                'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
-                'items.*.size' => ['nullable', 'string', 'max:10'], // not stored for now
-                'items.*.quantity' => ['required', 'integer', 'min:1'],
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation error.',
-                'errors'  => $e->errors(),
-            ], 422);
-        }
+        // 3) Create order
+        // Map payment_method: 'cod' -> 'cash', 'card' -> 'card' (as per DB schema)
+        $paymentMethod = $validated['payment_method'] === 'cod' ? 'cash' : 'card';
+        
+        $order = Order::create([
+            'user_id'        => $user ? $user->id : null,
+            'payment_method' => $paymentMethod,
+            'status'         => 'pending',
+            'total'          => $orderTotal,
+            // ⚠️ Do NOT add 'address' here unless you actually have an 'address' column.
+            // If you later add an 'address' column, you can include it like:
+            // 'address' => $validated['address'],
+        ]);
 
-        try {
-            // 2) Use a transaction like in your old store() method
-            $order = DB::transaction(function () use ($validated, $user) {
-                $itemsData = $validated['items'];
+        // 4) Create order_items and update product stock
+        foreach ($preparedItems as $itemData) {
+            /** @var Product $product */
+            $product  = $itemData['product'];
+            $size     = $itemData['size'];
+            $qty      = $itemData['quantity'];
 
-                $total = 0;
-                $orderItemsPayload = [];
-
-                // Build items + calculate total (using product price from DB)
-                foreach ($itemsData as $item) {
-                    /** @var Product|null $product */
-                    $product = Product::find($item['product_id']);
-
-                    if (!$product) {
-                        throw ValidationException::withMessages([
-                            'items' => ['One of the selected products was not found.'],
-                        ]);
-                    }
-
-                    $quantity  = $item['quantity'];
-                    $unitPrice = $product->price;
-                    $lineTotal = $unitPrice * $quantity;
-
-                    $total += $lineTotal;
-
-                    $orderItemsPayload[] = [
-                        'product_id' => $product->id,
-                        'quantity'   => $quantity,
-                        'unit_price' => $unitPrice,
-                        'line_total' => $lineTotal,
-                        // If later you add a 'size' column on order_items, you can put it here
-                        // 'size' => $item['size'] ?? null,
-                    ];
-                }
-
-                // Map payment_method from API -> DB values
-                // Old working controller used 'cash' or 'card'
-                $paymentMethod = $validated['payment_method'] === 'cod'
-                    ? 'cash'
-                    : 'card';
-
-                // 3) Create order (same style as old OrderController@store)
-                /** @var Order $order */
-                $order = Order::create([
-                    'user_id'        => $user->id,
-                    'total'          => $total,
-                    'status'         => 'pending',              // matches old code
-                    'payment_method' => $paymentMethod,         // 'cash' | 'card'
-                    'address'        => $validated['address'],  // you already have this column
-                ]);
-
-                // 4) Create order_items
-                foreach ($orderItemsPayload as $itemData) {
-                    $itemData['order_id'] = $order->id;
-                    OrderItem::create($itemData);
-                }
-
-                // 5) Load relations for response (like show page)
-                $order->load(['items.product', 'user']);
-
-                return $order;
-            });
-
-            return response()->json([
-                'message' => 'Order placed successfully.',
-                'order'   => $order,
-            ], 201);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation error.',
-                'errors'  => $e->errors(),
-            ], 422);
-        } catch (\Throwable $e) {
-            // Log once, but always send JSON to frontend
-            \Log::error('Checkout API error', [
-                'message' => $e->getMessage(),
-                'file'    => $e->getFile(),
-                'line'    => $e->getLine(),
+            // Create order item (if you added a 'size' column in order_items, include it here)
+            OrderItem::create([
+                'order_id'   => $order->id,
+                'product_id' => $product->id,
+                'quantity'   => $qty,
+                'unit_price' => $itemData['unit_price'],
+                'line_total' => $itemData['line_total'],
+                // 'size'    => $size, // uncomment if your table has this column
             ]);
 
-            return response()->json([
-                'message' => 'Server error during checkout.',
-                // You can remove 'error' in production if you want
-                'error'   => $e->getMessage(),
-            ], 500);
+            // Update per-size stock
+            $sizesStock = $product->sizes_stock ?? [];
+            if ($size && is_array($sizesStock) && array_key_exists($size, $sizesStock)) {
+                $sizesStock[$size] = max(0, (int) $sizesStock[$size] - $qty);
+                $product->sizes_stock = $sizesStock;
+            }
+
+            // Also update global stock if you are still using it
+            if (!is_null($product->stock)) {
+                $product->stock = max(0, (int) $product->stock - $qty);
+            }
+
+            $product->save();
         }
-    }
+
+        // 5) Return the order with items + products for frontend
+        $order->load(['items.product']);
+
+        return response()->json([
+            'message' => 'Order placed successfully.',
+            'order'   => $order,
+        ], 201);
+    });
+}
 
      public function myOrders(Request $request): JsonResponse
     {

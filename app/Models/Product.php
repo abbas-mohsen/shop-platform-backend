@@ -17,10 +17,12 @@ class Product extends Model
         'category_id',
         'image',
         'sizes',
+        'sizes_stock',
     ];
 
     protected $casts = [
         'sizes' => 'array',
+        'sizes_stock' => 'array',
     ];
 
     public function getAvailableSizesAttribute(): array
