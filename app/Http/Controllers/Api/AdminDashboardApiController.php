@@ -4,70 +4,73 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\OrderItem;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class AdminDashboardApiController extends Controller
 {
-    /**
-     * GET /api/admin/dashboard/overview
-     */
-    public function overview(Request $request)
+    public function overview()
     {
-        // Basic totals
-        $totalOrders = Order::count();
+        // 1) Basic totals
+        $totalOrders  = Order::count();
+        $totalRevenue = Order::whereIn('status', ['paid', 'shipped'])->sum('total');
 
-        // Revenue: only paid/shipped count as revenue
-        $totalRevenue = Order::whereIn('status', ['paid', 'shipped'])
-            ->sum('total');
-
-        // Orders by status
-        $statusCounts = Order::select('status', DB::raw('COUNT(*) as count'))
+        // 2) Status counts
+        $statusCounts = Order::select('status', DB::raw('COUNT(*) as cnt'))
             ->groupBy('status')
-            ->pluck('count', 'status');
+            ->pluck('cnt', 'status');
 
-        // Last 7 days: revenue + order count per day
+        // 3) Last 7 days (including today)
         $last7Days = Order::select(
                 DB::raw('DATE(created_at) as date'),
-                DB::raw('SUM(total) as revenue'),
-                DB::raw('COUNT(*) as orders_count')
+                DB::raw('COUNT(*) as orders_count'),
+                DB::raw('SUM(total) as revenue')
             )
             ->where('created_at', '>=', now()->subDays(6)->startOfDay())
             ->groupBy(DB::raw('DATE(created_at)'))
-            ->orderBy('date', 'asc')
+            ->orderBy('date')
             ->get();
 
-        // Top products (by quantity sold)
-        $topProductsRaw = OrderItem::select(
-                'product_id',
-                DB::raw('SUM(quantity) as total_qty')
+        // 4) Top products WITH IMAGE + NAME
+        $topProducts = DB::table('order_items')
+            ->join('products', 'order_items.product_id', '=', 'products.id')
+            ->select(
+                'order_items.product_id',
+                'products.name',
+                'products.image',
+                DB::raw('SUM(order_items.quantity) as total_qty')
             )
-            ->groupBy('product_id')
+            ->groupBy('order_items.product_id', 'products.name', 'products.image')
             ->orderByDesc('total_qty')
-            ->with('product')
-            ->limit(5)
+            ->take(5)
             ->get();
 
-        $topProducts = $topProductsRaw->map(function ($row) {
-            return [
-                'product_id'    => $row->product_id,
-                'name'          => optional($row->product)->name ?: 'Product #' . $row->product_id,
-                'total_qty'     => (int) $row->total_qty,
-            ];
-        });
+        // 5) Top customers: all users with PAID/SHIPPED orders
+        $topCustomers = DB::table('orders')
+            ->join('users', 'orders.user_id', '=', 'users.id')
+            ->select(
+                'orders.user_id',
+                'users.name',
+                DB::raw('COUNT(*) as orders_count'),
+                DB::raw('SUM(orders.total) as total_spent')
+            )
+            ->whereNotNull('orders.user_id')
+            ->whereIn('orders.status', ['paid', 'shipped'])
+            ->groupBy('orders.user_id', 'users.name')
+            ->orderByDesc('total_spent')
+            ->get();
 
         return response()->json([
-            'total_orders'   => (int) $totalOrders,
-            'total_revenue'  => (float) $totalRevenue,
-            'status_counts'  => [
-                'pending'   => (int) ($statusCounts['pending'] ?? 0),
-                'paid'      => (int) ($statusCounts['paid'] ?? 0),
-                'shipped'   => (int) ($statusCounts['shipped'] ?? 0),
-                'cancelled' => (int) ($statusCounts['cancelled'] ?? 0),
+            'total_orders'  => $totalOrders,
+            'total_revenue' => $totalRevenue,
+            'status_counts' => [
+                'pending'   => $statusCounts['pending']   ?? 0,
+                'paid'      => $statusCounts['paid']      ?? 0,
+                'shipped'   => $statusCounts['shipped']   ?? 0,
+                'cancelled' => $statusCounts['cancelled'] ?? 0,
             ],
-            'last_7_days'    => $last7Days,
-            'top_products'   => $topProducts,
+            'last_7_days'   => $last7Days,
+            'top_products'  => $topProducts,
+            'top_customers' => $topCustomers,
         ]);
     }
 }
