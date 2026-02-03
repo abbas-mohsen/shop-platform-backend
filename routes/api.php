@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\CategoryApiController;
 use App\Http\Controllers\Api\AdminProductApiController;
 use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\Api\CartApiController;
+use App\Http\Controllers\Api\WishlistApiController;
+use App\Http\Controllers\Api\AdminDashboardApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -57,6 +59,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post  ('/products',           [AdminProductApiController::class, 'store']);
         Route::post  ('/products/{product}', [AdminProductApiController::class, 'update']); // using POST for update
         Route::delete('/products/{product}', [AdminProductApiController::class, 'destroy']);
+
+        Route::get('/dashboard/overview', [AdminDashboardApiController::class, 'overview']);
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);
