@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AdminOrderApiController;
 use App\Http\Controllers\Api\CategoryApiController;
 use App\Http\Controllers\Api\AdminProductApiController;
 use App\Http\Controllers\Api\OrderApiController;
+use App\Http\Controllers\Api\CartApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,6 +37,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/my-orders', [OrderApiController::class, 'myOrders']);
     Route::get('/my-orders/{order}', [OrderApiController::class, 'showMyOrder']);
+
+    Route::get('/cart', [CartApiController::class, 'show']);
+    Route::post('/cart/items', [CartApiController::class, 'store']);
+    Route::delete('/cart/items/{item}', [CartApiController::class, 'destroy']);
+    Route::delete('/cart/clear', [CartApiController::class, 'clear']);
+    Route::delete('/cart/items', [CartApiController::class, 'destroyByProduct']);
+
+    Route::get('/wishlist', [WishlistApiController::class, 'index']);
+    Route::post('/wishlist', [WishlistApiController::class, 'store']);
+    Route::delete('/wishlist/{product}', [WishlistApiController::class, 'destroy']);
 
 
     Route::middleware('admin')->prefix('admin')->group(function () {
