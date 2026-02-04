@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\WishlistApiController;
 use App\Http\Controllers\Api\AdminDashboardApiController;
+use App\Http\Controllers\Api\ChatApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,6 +30,7 @@ Route::get('/categories', [CategoryApiController::class, 'index']);
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
+Route::post('/chat', [ChatApiController::class, 'chat']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
