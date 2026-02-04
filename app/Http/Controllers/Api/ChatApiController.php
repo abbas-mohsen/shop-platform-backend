@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ChatApiController extends Controller
 {
@@ -12,78 +14,130 @@ class ChatApiController extends Controller
      * Handle chat messages from the frontend.
      *
      * POST /api/chat
-     * Body: { "message": "text", "context": { ...optional } }
+     * Body: { "message": "text", "context": { path?: string, page?: string, product_id?: any } }
      */
     public function chat(Request $request)
     {
         $data = $request->validate([
-            'message'        => ['required', 'string', 'max:1000'],
-            'context'        => ['nullable', 'array'],
-            'context.path'   => ['nullable', 'string'],
-            'context.page'   => ['nullable', 'string'],
+            'message'            => ['required', 'string', 'max:1000'],
+            'context'            => ['nullable', 'array'],
+            'context.path'       => ['nullable', 'string'],
+            'context.page'       => ['nullable', 'string'],
             'context.product_id' => ['nullable'],
         ]);
 
-        $user = Auth::user();
+        $user    = Auth::user();
         $message = trim($data['message']);
-        $lower   = mb_strtolower($message);
+        $context = $data['context'] ?? [];
 
-        // Simple rule-based "AI" for now – you can later plug real LLM here.
-        $reply = $this->generateSimpleReply($lower, $message, $data['context'] ?? [], $user);
+        try {
+            $reply = $this->generateAiReply($message, $context, $user);
 
-        return response()->json([
-            'reply' => $reply,
-        ]);
+            return response()->json([
+                'reply' => $reply,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Chat assistant error', [
+                'error'   => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+                'user_id' => $user ? $user->id : null,
+            ]);
+
+            return response()->json([
+                'message' => 'Assistant is temporarily unavailable. Please try again later.',
+            ], 500);
+        }
     }
 
     /**
-     * Very simple assistant logic for now.
-     * Later you can replace this with a call to a real AI API.
+     * Call OpenAI Chat Completions API to generate a reply.
      */
-    protected function generateSimpleReply(string $lower, string $original, array $context, $user = null): string
+    protected function generateAiReply(string $message, array $context, $user = null): string
     {
-        $name = $user ? $user->name : 'there';
+        $apiKey = config('services.openai.key');
+        $model  = config('services.openai.model', 'gpt-4.1-mini');
 
-        // Shipping / delivery
-        if (str_contains($lower, 'delivery') || str_contains($lower, 'ship')) {
-            return "Hey {$name}! We usually deliver across Lebanon within 2–4 business days. "
-                . "Delivery fees depend on your area. You can add items to your cart and see the delivery details at checkout.";
+        if (!$apiKey) {
+            // Safe fallback if not configured correctly
+            return "Our AI assistant is not fully configured yet, "
+                . "but you can still browse products and use the filters on the Products page.";
         }
 
-        // Returns / refunds
-        if (str_contains($lower, 'return') || str_contains($lower, 'refund')) {
-            return "If your item doesn’t fit or you’re not happy with it, you can request a return within a few days of receiving it. "
-                . "Make sure the product is unworn and keep the tags. For full details, contact our support on Instagram or WhatsApp.";
-        }
+        $userName = $user ? $user->name : 'Customer';
 
-        // Sizes / fit
-        if (str_contains($lower, 'size') || str_contains($lower, 'fit')) {
-            return "Choosing size can be tricky, {$name}. As a general tip, stick to your usual sportswear size. "
-                . "If you’re between sizes, we recommend going one size up for a relaxed fit. "
-                . "You can also check the available sizes on each product card or details page.";
-        }
-
-        // Payment
-        if (str_contains($lower, 'payment') || str_contains($lower, 'pay') || str_contains($lower, 'cod')) {
-            return "Right now, we primarily support Cash on Delivery (COD). "
-                . "You’ll pay when your order arrives. Online payment options can be added as a future enhancement.";
-        }
-
-        // Product search style question
-        if (str_contains($lower, 'hoodie') || str_contains($lower, 't-shirt') || str_contains($lower, 'leggings')) {
-            return "We’ve got some nice pieces in that category. "
-                . "You can browse the Products page and use the filters on the left (category, size, price) to narrow it down. "
-                . "I’ll get smarter later and suggest exact items automatically.";
-        }
-
-        // Fallback generic
-        $pathInfo = '';
+        // Build context text (where the user is in the app)
+        $pieces = [];
         if (!empty($context['path'])) {
-            $pathInfo = " I see you’re currently on: {$context['path']}.";
+            $pieces[] = "Current page path: {$context['path']}";
+        }
+        if (!empty($context['page'])) {
+            $pieces[] = "Page title: {$context['page']}";
+        }
+        if (!empty($context['product_id'])) {
+            $pieces[] = "User is looking at product ID: {$context['product_id']}";
         }
 
-        return "Got it, {$name}!{$pathInfo} "
-            . "Right now I’m a simple assistant that can help with delivery, returns, sizes and how to use the site. "
-            . "You asked: \"{$original}\".";
+        $contextText = $pieces
+            ? "\n\nContext about the user’s view inside the XTREMEFIT app:\n" . implode("\n", $pieces)
+            : '';
+
+        // System prompt: define behaviour of the assistant
+        $systemPrompt = <<<PROMPT
+You are the AI assistant for XTREMEFIT, a sportswear e-commerce website based in Lebanon.
+
+Your job is to:
+- Help users with product questions (sizes, fit, style suggestions).
+- Help with basic store policies like delivery areas, shipping time, returns and payment methods.
+- Always answer briefly and clearly (2–5 sentences).
+- When you mention actions, guide them to parts of the site (Home, Products page, filters, cart, checkout).
+- You DO NOT invent specific order statuses or tracking links. If asked about an order, tell them to check "My Orders" in their account for the latest status.
+
+Be friendly, concise and professional.
+PROMPT;
+
+        // User message with some structured info
+        $userContent = "Customer name: {$userName}\n"
+            . "Question: {$message}"
+            . $contextText;
+
+        // Call OpenAI Chat Completions API
+        // Docs: https://platform.openai.com/docs/api-reference/chat?utm_source=chatgpt.com
+        $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type'  => 'application/json',
+            ])
+            ->post('https://api.openai.com/v1/chat/completions', [
+                'model'    => $model,
+                'messages' => [
+                    [
+                        'role'    => 'system',
+                        'content' => $systemPrompt,
+                    ],
+                    [
+                        'role'    => 'user',
+                        'content' => $userContent,
+                    ],
+                ],
+                'temperature' => 0.6,
+                'max_tokens'  => 350,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('OpenAI API error', [
+                'status' => $response->status(),
+                'body'   => $response->body(),
+            ]);
+
+            throw new \RuntimeException('Failed to contact OpenAI API');
+        }
+
+        $data = $response->json();
+        $aiText = $data['choices'][0]['message']['content'] ?? null;
+
+        if (!$aiText) {
+            throw new \RuntimeException('Empty response from AI');
+        }
+
+        return trim($aiText);
     }
 }
