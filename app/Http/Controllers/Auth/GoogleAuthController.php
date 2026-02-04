@@ -5,47 +5,55 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
 
 class GoogleAuthController extends Controller
 {
-    // Redirect the user to Google's OAuth page
     public function redirect()
     {
+        // IMPORTANT: stateless here as well
         return Socialite::driver('google')
             ->stateless()
             ->redirect();
     }
 
-    // Handle the callback from Google
     public function callback()
     {
         try {
-            $googleUser = Socialite::driver('google')->stateless()->user();
+            // This is where the error happens right now
+            $googleUser = Socialite::driver('google')
+                ->stateless()
+                ->user();
         } catch (\Throwable $e) {
-            // you can log it if you want
-            return redirect(config('app.frontend_url', env('FRONTEND_URL')) . '/login?error=google');
+            // Log for Laravel, but ALSO send the real message to React so we can see it
+            Log::error('Google OAuth error', [
+                'message' => $e->getMessage(),
+            ]);
+
+            $frontend = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
+
+            // NOTE: we now send the reason in the URL for debugging
+            return redirect($frontend . '/login?error=google&reason=' . urlencode($e->getMessage()));
         }
 
-        // Find or create local user
+        // Find or create user
         $user = User::where('email', $googleUser->getEmail())->first();
 
-        if (!$user) {
+        if (! $user) {
             $user = User::create([
                 'name'     => $googleUser->getName() ?: $googleUser->getNickname() ?: 'Google User',
                 'email'    => $googleUser->getEmail(),
-                // random password, user will always use Google to sign in
                 'password' => Hash::make(uniqid('google_', true)),
                 'is_admin' => 0,
                 'role'     => 'customer',
             ]);
         }
 
-        // Create Sanctum token
+        // Sanctum token
         $token = $user->createToken('google-login')->plainTextToken;
 
-        // Redirect back to React with token in query string
-        $frontend = config('app.frontend_url', env('FRONTEND_URL'));
+        $frontend = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
 
         return redirect($frontend . '/auth/google/callback?token=' . urlencode($token));
     }
