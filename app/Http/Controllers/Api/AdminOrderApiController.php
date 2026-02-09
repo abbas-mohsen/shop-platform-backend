@@ -29,4 +29,21 @@ class AdminOrderApiController extends Controller
 
         return response()->json($order);
     }
+
+    /**
+     * PUT /api/admin/orders/{order}/cancel
+     * Admin can cancel any pending order.
+     */
+    public function cancel(Order $order)
+    {
+        if ($order->status !== 'pending') {
+            return response()->json([
+                'message' => 'Only pending orders can be cancelled.',
+            ], 422);
+        }
+
+        $order->update(['status' => 'cancelled']);
+
+        return response()->json($order->fresh());
+    }
 }

@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\WishlistApiController;
 use App\Http\Controllers\Api\AdminDashboardApiController;
 use App\Http\Controllers\Api\ChatApiController;
+use App\Http\Controllers\Api\ReviewApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,6 +27,7 @@ use App\Http\Controllers\Api\ChatApiController;
 
 Route::get('/products', [ProductApiController::class, 'index']);
 Route::get('/products/{product}', [ProductApiController::class, 'show']);
+Route::get('/products/{product}/reviews', [ReviewApiController::class, 'index']);
 Route::get('/categories', [CategoryApiController::class, 'index']);
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -37,10 +39,17 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
 
+    Route::put('/user/profile',  [AuthController::class, 'updateProfile']);
+    Route::put('/user/password', [AuthController::class, 'updatePassword']);
+
     Route::post('/checkout', [OrderApiController::class, 'checkout']);
 
     Route::get('/my-orders', [OrderApiController::class, 'myOrders']);
     Route::get('/my-orders/{order}', [OrderApiController::class, 'showMyOrder']);
+    Route::put('/orders/{order}/cancel', [OrderApiController::class, 'cancel']);
+
+    Route::post('/products/{product}/reviews', [ReviewApiController::class, 'store']);
+    Route::delete('/reviews/{review}', [ReviewApiController::class, 'destroy']);
 
     Route::get('/cart', [CartApiController::class, 'show']);
     Route::post('/cart/items', [CartApiController::class, 'store']);
@@ -56,6 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/orders', [AdminOrderApiController::class, 'index']);
         Route::put('/orders/{order}', [AdminOrderApiController::class, 'updateStatus']);
+        Route::put('/orders/{order}/cancel', [AdminOrderApiController::class, 'cancel']);
         Route::get   ('/products',           [AdminProductApiController::class, 'index']);
         Route::get   ('/products/{product}', [AdminProductApiController::class, 'show']);
         Route::post  ('/products',           [AdminProductApiController::class, 'store']);

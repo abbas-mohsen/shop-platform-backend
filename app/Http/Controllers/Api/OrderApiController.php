@@ -191,4 +191,31 @@ class OrderApiController extends Controller
             'order' => $order,
         ]);
     }
+
+    /**
+     * PUT /api/orders/{order}/cancel
+     * Cancel a pending order (owner only).
+     */
+    public function cancel(Request $request, Order $order): JsonResponse
+    {
+        $user = $request->user();
+
+        // Only the owner can cancel
+        if ($order->user_id !== $user->id) {
+            return response()->json([
+                'message' => 'You are not authorized to cancel this order.',
+            ], 403);
+        }
+
+        // Only pending orders can be cancelled
+        if ($order->status !== 'pending') {
+            return response()->json([
+                'message' => 'Only pending orders can be cancelled.',
+            ], 422);
+        }
+
+        $order->update(['status' => 'cancelled']);
+
+        return response()->json($order->fresh());
+    }
 }

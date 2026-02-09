@@ -13,6 +13,8 @@ class AdminProductApiController extends Controller
     public function index()
     {
         return Product::with('category')
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
             ->orderBy('created_at', 'desc')
             ->get();
     }

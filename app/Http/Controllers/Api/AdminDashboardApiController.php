@@ -50,12 +50,13 @@ class AdminDashboardApiController extends Controller
             ->select(
                 'orders.user_id',
                 'users.name',
+                'users.phone',
                 DB::raw('COUNT(*) as orders_count'),
                 DB::raw('SUM(orders.total) as total_spent')
             )
             ->whereNotNull('orders.user_id')
             ->whereIn('orders.status', ['paid', 'shipped'])
-            ->groupBy('orders.user_id', 'users.name')
+            ->groupBy('orders.user_id', 'users.name', 'users.phone')
             ->orderByDesc('total_spent')
             ->get();
 
