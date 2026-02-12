@@ -15,7 +15,7 @@ class CheckoutRequest extends FormRequest
     {
         return [
             'address'            => ['required', 'string', 'max:500'],
-            'payment_method'     => ['required', 'in:cod,card'],
+            'payment_method'     => ['required', 'in:cash,card'],
             'items'              => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity'   => ['required', 'integer', 'min:1'],

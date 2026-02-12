@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Mail\OrderConfirmation;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class CheckoutService
 {
@@ -22,7 +25,7 @@ class CheckoutService
      */
     public function execute(int $userId, array $items, string $paymentMethod, string $address): Order
     {
-        return DB::transaction(function () use ($userId, $items, $paymentMethod, $address) {
+        $order = DB::transaction(function () use ($userId, $items, $paymentMethod, $address) {
             $orderTotal    = 0;
             $preparedItems = [];
 
@@ -49,11 +52,9 @@ class CheckoutService
             }
 
             // 2) Create Order
-            $dbPaymentMethod = $paymentMethod === 'cod' ? 'cash' : 'card';
-
             $order = Order::create([
                 'user_id'        => $userId,
-                'payment_method' => $dbPaymentMethod,
+                'payment_method' => $paymentMethod,
                 'status'         => 'pending',
                 'total'          => $orderTotal,
                 'address'        => $address,
@@ -77,6 +78,20 @@ class CheckoutService
 
             return $order;
         });
+
+        // Send confirmation email OUTSIDE the transaction so a mail
+        // failure never rolls back a successful order.
+        try {
+            $user = User::find($userId);
+            if ($user && $user->email) {
+                $order->setRelation('user', $user);
+                Mail::to($user->email)->queue(new OrderConfirmation($order));
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Order confirmation email failed: ' . $e->getMessage());
+        }
+
+        return $order;
     }
 
     /**

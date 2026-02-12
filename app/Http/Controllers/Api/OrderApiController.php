@@ -6,10 +6,12 @@ use App\Exceptions\InsufficientStockException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckoutRequest;
 use App\Http\Resources\OrderResource;
+use App\Mail\OrderStatusUpdated;
 use App\Models\Order;
 use App\Services\CheckoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class OrderApiController extends Controller
 {
@@ -95,7 +97,18 @@ class OrderApiController extends Controller
             ], 422);
         }
 
+        $oldStatus = $order->status;
         $order->update(['status' => 'cancelled']);
+
+        // Send cancellation email
+        try {
+            $user = $request->user();
+            if ($user && $user->email) {
+                Mail::to($user->email)->queue(new OrderStatusUpdated($order->fresh(), $oldStatus));
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Order cancellation email failed: ' . $e->getMessage());
+        }
 
         return response()->json(new OrderResource($order->fresh()));
     }
