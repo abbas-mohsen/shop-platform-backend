@@ -3,46 +3,49 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\UpdatePasswordRequest;
+use App\Http\Requests\Auth\UpdateProfileRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    /**
+     * Register a new user.
+     *
+     * SECURITY: Role is always forced to 'customer'. Admin accounts
+     * must be created via the database, a seeder, or a protected admin endpoint.
+     */
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'max:255', 'unique:users,email'],
-            'phone'    => ['nullable', 'string', 'max:20'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
-            'role'     => ['nullable', 'in:customer,admin'],
-        ]);
+        $data = $request->validated();
 
         $user = User::create([
             'name'     => $data['name'],
             'email'    => $data['email'],
-            'phone'    => $data['phone'],
+            'phone'    => $data['phone'] ?? null,
             'password' => Hash::make($data['password']),
-            'role'     => $data['role'] ?? 'customer',
-            'is_admin' => ($data['role'] ?? 'customer') === 'admin' ? 1 : 0,
+            'role'     => 'customer',   // Always force customer role
+            'is_admin' => false,
         ]);
 
         $token = $user->createToken('frontend')->plainTextToken;
 
         return response()->json([
-            'user'  => $user,
+            'user'  => new UserResource($user),
             'token' => $token,
-        ]);
+        ], 201);
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'email'    => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $data = $request->validated();
 
         $user = User::where('email', $data['email'])->first();
 
@@ -52,56 +55,46 @@ class AuthController extends Controller
             ]);
         }
 
-        // Optionally delete old tokens
+        // Delete old tokens to prevent token accumulation
         $user->tokens()->delete();
 
         $token = $user->createToken('frontend')->plainTextToken;
 
         return response()->json([
-            'user'  => $user,
+            'user'  => new UserResource($user),
             'token' => $token,
         ]);
     }
 
-    public function updateProfile(Request $request)
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
         $user = $request->user();
+        $user->update($request->validated());
 
-        $data = $request->validate([
-            'name'    => ['required', 'string', 'max:255'],
-            'email'   => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
-            'phone'   => ['nullable', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:500'],
+        return response()->json([
+            'user' => new UserResource($user->fresh()),
         ]);
-
-        $user->update($data);
-
-        return response()->json(['user' => $user->fresh()]);
     }
 
-    public function updatePassword(Request $request)
+    public function updatePassword(UpdatePasswordRequest $request): JsonResponse
     {
         $user = $request->user();
+        $data = $request->validated();
 
-        $request->validate([
-            'current_password' => ['required', 'string'],
-            'password'         => ['required', 'string', 'min:6', 'confirmed'],
-        ]);
-
-        if (! Hash::check($request->current_password, $user->password)) {
+        if (! Hash::check($data['current_password'], $user->password)) {
             throw ValidationException::withMessages([
                 'current_password' => ['The current password is incorrect.'],
             ]);
         }
 
         $user->update([
-            'password' => Hash::make($request->password),
+            'password' => Hash::make($data['password']),
         ]);
 
         return response()->json(['message' => 'Password updated successfully.']);
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
 

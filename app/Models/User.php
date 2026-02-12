@@ -11,6 +11,17 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    // ── Role constants ────────────────────────────────────────────
+    const ROLE_CUSTOMER    = 'customer';
+    const ROLE_ADMIN       = 'admin';
+    const ROLE_SUPER_ADMIN = 'super_admin';
+
+    const ROLES = [
+        self::ROLE_CUSTOMER,
+        self::ROLE_ADMIN,
+        self::ROLE_SUPER_ADMIN,
+    ];
+
     protected $fillable = [
         'name',
         'email',
@@ -29,14 +40,30 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
     ];
 
-    public function isAdmin()
+    // ── Role checkers ─────────────────────────────────────────────
+
+    public function isSuperAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->role === self::ROLE_SUPER_ADMIN;
     }
 
-    public function isCustomer()
+    public function isAdmin(): bool
     {
-        return $this->role === 'customer';
+        return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_SUPER_ADMIN]);
+    }
+
+    public function isCustomer(): bool
+    {
+        return $this->role === self::ROLE_CUSTOMER;
+    }
+
+    /**
+     * Check if this user can manage another user's role.
+     * Only super_admins can promote/demote. They cannot demote themselves.
+     */
+    public function canManageRole(User $target): bool
+    {
+        return $this->isSuperAdmin() && $this->id !== $target->id;
     }
 
     public function orders()

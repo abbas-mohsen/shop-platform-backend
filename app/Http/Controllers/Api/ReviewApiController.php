@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreReviewRequest;
+use App\Http\Resources\ReviewResource;
 use App\Models\Product;
 use App\Models\Review;
 use Illuminate\Http\Request;
@@ -11,7 +13,6 @@ class ReviewApiController extends Controller
 {
     /**
      * GET /api/products/{product}/reviews
-     * List all reviews for a product (paginated, 10 per page).
      */
     public function index(Product $product, Request $request)
     {
@@ -20,18 +21,16 @@ class ReviewApiController extends Controller
             ->latest()
             ->paginate(10);
 
-        return response()->json($reviews);
+        return ReviewResource::collection($reviews);
     }
 
     /**
      * POST /api/products/{product}/reviews
-     * Create a review (authenticated).
      */
-    public function store(Request $request, Product $product)
+    public function store(StoreReviewRequest $request, Product $product)
     {
         $user = $request->user();
 
-        // Check if user already reviewed this product
         $existing = Review::where('user_id', $user->id)
             ->where('product_id', $product->id)
             ->exists();
@@ -42,10 +41,7 @@ class ReviewApiController extends Controller
             ], 422);
         }
 
-        $data = $request->validate([
-            'rating'  => ['required', 'integer', 'min:1', 'max:5'],
-            'comment' => ['nullable', 'string', 'max:1000'],
-        ]);
+        $data = $request->validated();
 
         $review = Review::create([
             'user_id'    => $user->id,
@@ -56,22 +52,16 @@ class ReviewApiController extends Controller
 
         $review->load('user:id,name');
 
-        return response()->json($review, 201);
+        return new ReviewResource($review);
     }
 
     /**
      * DELETE /api/reviews/{review}
-     * Delete own review, or admin can delete any.
+     * Uses ReviewPolicy for authorization.
      */
     public function destroy(Request $request, Review $review)
     {
-        $user = $request->user();
-
-        if ($review->user_id !== $user->id && $user->role !== 'admin') {
-            return response()->json([
-                'message' => 'You are not authorized to delete this review.',
-            ], 403);
-        }
+        $this->authorize('delete', $review);
 
         $review->delete();
 

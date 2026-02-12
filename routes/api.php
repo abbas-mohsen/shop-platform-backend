@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\WishlistApiController;
 use App\Http\Controllers\Api\AdminDashboardApiController;
 use App\Http\Controllers\Api\ChatApiController;
 use App\Http\Controllers\Api\ReviewApiController;
+use App\Http\Controllers\Api\AdminUserApiController;
+use App\Http\Resources\UserResource;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,13 +32,17 @@ Route::get('/products/{product}', [ProductApiController::class, 'show']);
 Route::get('/products/{product}/reviews', [ReviewApiController::class, 'index']);
 Route::get('/categories', [CategoryApiController::class, 'index']);
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login',    [AuthController::class, 'login']);
+// Rate-limit auth endpoints: 5 attempts per minute to prevent brute-force
+Route::middleware('throttle:5,1')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login',    [AuthController::class, 'login']);
+});
+
 Route::post('/chat', [ChatApiController::class, 'chat']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
-        return $request->user();
+        return new UserResource($request->user());
     });
 
     Route::put('/user/profile',  [AuthController::class, 'updateProfile']);
@@ -73,6 +79,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/products/{product}', [AdminProductApiController::class, 'destroy']);
 
         Route::get('/dashboard/overview', [AdminDashboardApiController::class, 'overview']);
+
+        // User management — super_admin only (enforced inside controller)
+        Route::get('/users',              [AdminUserApiController::class, 'index']);
+        Route::put('/users/{user}/role',  [AdminUserApiController::class, 'updateRole']);
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);

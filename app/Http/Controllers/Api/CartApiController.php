@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CartResource;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
@@ -25,7 +26,7 @@ class CartApiController extends Controller
 
         $cart->load(['items.product.category']);
 
-        return response()->json($cart);
+        return new CartResource($cart);
     }
 
     /**
@@ -74,7 +75,7 @@ class CartApiController extends Controller
 
         $cart->load(['items.product.category']);
 
-        return response()->json($cart);
+        return new CartResource($cart);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use Illuminate\Http\Request;
 
@@ -10,16 +11,17 @@ class AdminOrderApiController extends Controller
 {
     public function index()
     {
-        // load user and items->product for summary
         $orders = Order::with(['user', 'items.product'])
             ->latest()
-            ->get();
+            ->paginate(25); // Paginate instead of ->get() for scalability
 
-        return response()->json($orders);
+        return OrderResource::collection($orders);
     }
 
     public function updateStatus(Request $request, Order $order)
     {
+        $this->authorize('updateStatus', $order);
+
         $data = $request->validate([
             'status' => ['required', 'in:pending,paid,shipped,cancelled'],
         ]);
@@ -27,15 +29,13 @@ class AdminOrderApiController extends Controller
         $order->status = $data['status'];
         $order->save();
 
-        return response()->json($order);
+        return new OrderResource($order);
     }
 
-    /**
-     * PUT /api/admin/orders/{order}/cancel
-     * Admin can cancel any pending order.
-     */
     public function cancel(Order $order)
     {
+        $this->authorize('cancel', $order);
+
         if ($order->status !== 'pending') {
             return response()->json([
                 'message' => 'Only pending orders can be cancelled.',
@@ -44,6 +44,6 @@ class AdminOrderApiController extends Controller
 
         $order->update(['status' => 'cancelled']);
 
-        return response()->json($order->fresh());
+        return new OrderResource($order->fresh());
     }
 }

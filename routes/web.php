@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\HomeController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Resources\UserResource;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,15 +39,7 @@ Route::get('/api/me', function (Request $request) {
         return response()->json(null, 200);
     }
 
-    $user = auth()->user();
-
-    return response()->json([
-        'id'       => $user->id,
-        'name'     => $user->name,
-        'email'    => $user->email,
-        'role'     => $user->role,      // "customer" or "admin"
-        'is_admin' => (bool) $user->is_admin,
-    ]);
+    return new UserResource(auth()->user());
 });
 
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');

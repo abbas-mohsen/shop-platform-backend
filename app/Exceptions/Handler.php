@@ -37,5 +37,15 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             //
         });
+
+        // Return clean JSON for stock errors during checkout
+        $this->renderable(function (InsufficientStockException $e, $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Not enough stock.',
+                    'error'   => $e->getMessage(),
+                ], 422);
+            }
+        });
     }
 }

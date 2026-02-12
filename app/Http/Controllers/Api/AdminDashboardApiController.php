@@ -4,22 +4,32 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class AdminDashboardApiController extends Controller
 {
+    /**
+     * Dashboard overview — cached for 5 minutes to reduce expensive aggregate queries.
+     */
     public function overview()
     {
-        // 1) Basic totals
+        $data = Cache::remember('admin:dashboard:overview', 300, function () {
+            return $this->buildOverviewData();
+        });
+
+        return response()->json($data);
+    }
+
+    private function buildOverviewData(): array
+    {
         $totalOrders  = Order::count();
         $totalRevenue = Order::whereIn('status', ['paid', 'shipped'])->sum('total');
 
-        // 2) Status counts
         $statusCounts = Order::select('status', DB::raw('COUNT(*) as cnt'))
             ->groupBy('status')
             ->pluck('cnt', 'status');
 
-        // 3) Last 7 days (including today)
         $last7Days = Order::select(
                 DB::raw('DATE(created_at) as date'),
                 DB::raw('COUNT(*) as orders_count'),
@@ -30,7 +40,6 @@ class AdminDashboardApiController extends Controller
             ->orderBy('date')
             ->get();
 
-        // 4) Top products WITH IMAGE + NAME
         $topProducts = DB::table('order_items')
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->select(
@@ -44,7 +53,6 @@ class AdminDashboardApiController extends Controller
             ->take(5)
             ->get();
 
-        // 5) Top customers: all users with PAID/SHIPPED orders
         $topCustomers = DB::table('orders')
             ->join('users', 'orders.user_id', '=', 'users.id')
             ->select(
@@ -60,7 +68,7 @@ class AdminDashboardApiController extends Controller
             ->orderByDesc('total_spent')
             ->get();
 
-        return response()->json([
+        return [
             'total_orders'  => $totalOrders,
             'total_revenue' => $totalRevenue,
             'status_counts' => [
@@ -72,6 +80,6 @@ class AdminDashboardApiController extends Controller
             'last_7_days'   => $last7Days,
             'top_products'  => $topProducts,
             'top_customers' => $topCustomers,
-        ]);
+        ];
     }
 }
