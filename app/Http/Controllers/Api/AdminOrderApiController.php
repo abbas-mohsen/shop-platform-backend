@@ -6,16 +6,24 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Mail\OrderStatusUpdated;
 use App\Models\Order;
+use App\Services\CheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
 class AdminOrderApiController extends Controller
 {
+    private CheckoutService $checkoutService;
+
+    public function __construct(CheckoutService $checkoutService)
+    {
+        $this->checkoutService = $checkoutService;
+    }
+
     public function index()
     {
         $orders = Order::with(['user', 'items.product'])
             ->latest()
-            ->paginate(25); // Paginate instead of ->get() for scalability
+            ->paginate(25);
 
         return OrderResource::collection($orders);
     }
@@ -25,13 +33,18 @@ class AdminOrderApiController extends Controller
         $this->authorize('updateStatus', $order);
 
         $data = $request->validate([
-            'status' => ['required', 'in:pending,paid,shipped,cancelled'],
+            'status' => ['required', 'in:pending,approved,rejected,delivered,cancelled'],
         ]);
 
         $oldStatus = $order->status;
 
         $order->status = $data['status'];
         $order->save();
+
+        // Restore stock when an order is cancelled via status change
+        if ($data['status'] === 'cancelled' && $oldStatus !== 'cancelled') {
+            $this->checkoutService->restoreStock($order);
+        }
 
         // Send status update email
         if ($oldStatus !== $order->status) {
@@ -59,6 +72,9 @@ class AdminOrderApiController extends Controller
         }
 
         $order->update(['status' => 'cancelled']);
+
+        // Restore stock now that the order is cancelled
+        $this->checkoutService->restoreStock($order);
 
         // Send cancellation email
         try {

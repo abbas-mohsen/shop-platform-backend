@@ -38,16 +38,21 @@ class GoogleAuthController extends Controller
         }
 
         // Find or create user
-        $user = User::where('email', $googleUser->getEmail())->first();
+        $user = User::where('google_id', $googleUser->getId())
+                    ->orWhere('email', $googleUser->getEmail())
+                    ->first();
 
         if (! $user) {
             $user = User::create([
-                'name'     => $googleUser->getName() ?: $googleUser->getNickname() ?: 'Google User',
-                'email'    => $googleUser->getEmail(),
-                'password' => Hash::make(uniqid('google_', true)),
-                'is_admin' => 0,
-                'role'     => 'customer',
+                'name'      => $googleUser->getName() ?: $googleUser->getNickname() ?: 'Google User',
+                'email'     => $googleUser->getEmail(),
+                'password'  => Hash::make(uniqid('google_', true)),
+                'google_id' => $googleUser->getId(),
+                'role'      => 'customer',
             ]);
+        } elseif (! $user->google_id) {
+            // Existing email-based account — link the Google ID
+            $user->update(['google_id' => $googleUser->getId()]);
         }
 
         // Sanctum token

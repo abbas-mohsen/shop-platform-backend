@@ -31,16 +31,17 @@ class ProductApiController extends Controller
             ->withAvg('reviews', 'rating');
 
         // Search by name or description
-        if ($search = trim($request->query('q', ''))) {
+        if ($search = trim($request->query('search', ''))) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
                   ->orWhere('description', 'like', '%' . $search . '%');
             });
         }
 
-        // Filter by category ID
+        // Filter by category ID (single value or array via category_id[])
         if ($categoryId = $request->query('category_id')) {
-            $query->where('category_id', $categoryId);
+            $ids = is_array($categoryId) ? $categoryId : [$categoryId];
+            $query->whereIn('category_id', $ids);
         }
 
         // Filter by category name
@@ -64,8 +65,8 @@ class ProductApiController extends Controller
         }
 
         // Sorting
-        $sortField = $request->query('sort', 'created_at');
-        $sortOrder = $request->query('order', 'desc');
+        $sortField = $request->query('sort_by', 'created_at');
+        $sortOrder = $request->query('sort_order', 'desc');
 
         $allowedSorts = ['price', 'name', 'created_at', 'stock'];
         $sortField = in_array($sortField, $allowedSorts) ? $sortField : 'created_at';

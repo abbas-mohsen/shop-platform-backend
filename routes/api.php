@@ -14,6 +14,8 @@ use App\Http\Controllers\Api\AdminDashboardApiController;
 use App\Http\Controllers\Api\ChatApiController;
 use App\Http\Controllers\Api\ReviewApiController;
 use App\Http\Controllers\Api\AdminUserApiController;
+use App\Http\Controllers\Api\DeviceTokenApiController;
+use App\Http\Controllers\Api\AdminNotificationApiController;
 use App\Http\Resources\UserResource;
 
 /*
@@ -34,11 +36,14 @@ Route::get('/categories', [CategoryApiController::class, 'index']);
 
 // Rate-limit auth endpoints: 5 attempts per minute to prevent brute-force
 Route::middleware('throttle:5,1')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login',    [AuthController::class, 'login']);
+    Route::post('/register',        [AuthController::class, 'register']);
+    Route::post('/login',           [AuthController::class, 'login']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/reset-password',  [AuthController::class, 'resetPassword']);
 });
 
-Route::post('/chat', [ChatApiController::class, 'chat']);
+// Google OAuth – slightly more lenient rate limit (token already validated by Google)
+Route::middleware('throttle:10,1')->post('/auth/google', [AuthController::class, 'googleAuth']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
@@ -47,6 +52,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::put('/user/profile',  [AuthController::class, 'updateProfile']);
     Route::put('/user/password', [AuthController::class, 'updatePassword']);
+
+    Route::post('/chat', [ChatApiController::class, 'chat']);
 
     Route::post('/checkout', [OrderApiController::class, 'checkout']);
 
@@ -67,6 +74,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/wishlist', [WishlistApiController::class, 'store']);
     Route::delete('/wishlist/{product}', [WishlistApiController::class, 'destroy']);
 
+    // Device token registration (for push notifications)
+    Route::post('/user/device-token',   [DeviceTokenApiController::class, 'store']);
+    Route::delete('/user/device-token', [DeviceTokenApiController::class, 'destroy']);
 
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/orders', [AdminOrderApiController::class, 'index']);
@@ -83,6 +93,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // User management — super_admin only (enforced inside controller)
         Route::get('/users',              [AdminUserApiController::class, 'index']);
         Route::put('/users/{user}/role',  [AdminUserApiController::class, 'updateRole']);
+
+        // Push notifications — super_admin only (enforced inside controller)
+        Route::post('/notifications/send', [AdminNotificationApiController::class, 'send']);
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);

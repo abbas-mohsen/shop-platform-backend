@@ -12,6 +12,7 @@ use App\Services\CheckoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 
 class OrderApiController extends Controller
 {
@@ -97,8 +98,17 @@ class OrderApiController extends Controller
             ], 422);
         }
 
+        if ($order->created_at->diffInHours(now()) >= 24) {
+            return response()->json([
+                'message' => 'Orders can only be cancelled within 24 hours of placing them.',
+            ], 422);
+        }
+
         $oldStatus = $order->status;
         $order->update(['status' => 'cancelled']);
+
+        // Restore stock now that the order is cancelled
+        $this->checkoutService->restoreStock($order);
 
         // Send cancellation email
         try {

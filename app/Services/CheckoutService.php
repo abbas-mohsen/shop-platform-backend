@@ -122,6 +122,36 @@ class CheckoutService
     }
 
     /**
+     * Restore stock to products when an order is cancelled.
+     * Mirrors deductStock in reverse.
+     */
+    public function restoreStock(Order $order): void
+    {
+        $order->loadMissing('items.product');
+
+        foreach ($order->items as $item) {
+            $product = $item->product;
+            if (! $product) {
+                continue;
+            }
+
+            $sizesStock = $product->sizes_stock ?? [];
+            $size       = $item->size;
+
+            if ($size && is_array($sizesStock) && array_key_exists($size, $sizesStock)) {
+                $sizesStock[$size]    = (int) $sizesStock[$size] + $item->quantity;
+                $product->sizes_stock = $sizesStock;
+            }
+
+            if (! is_null($product->stock)) {
+                $product->stock = (int) $product->stock + $item->quantity;
+            }
+
+            $product->save();
+        }
+    }
+
+    /**
      * Deduct stock from the product after a successful order.
      */
     private function deductStock(Product $product, int $qty, ?string $size): void

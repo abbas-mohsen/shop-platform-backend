@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class ProductService
 {
@@ -51,9 +53,20 @@ class ProductService
 
     /**
      * Delete a product and its associated image.
+     * Blocks deletion if the product is part of a pending or approved order.
      */
     public function delete(Product $product): void
     {
+        $activeOrderExists = OrderItem::where('product_id', $product->id)
+            ->whereHas('order', fn ($q) => $q->whereIn('status', ['pending', 'approved']))
+            ->exists();
+
+        if ($activeOrderExists) {
+            throw ValidationException::withMessages([
+                'product' => ['This product cannot be deleted because it is part of an active order.'],
+            ]);
+        }
+
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }
