@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\ReviewApiController;
 use App\Http\Controllers\Api\AdminUserApiController;
 use App\Http\Controllers\Api\DeviceTokenApiController;
 use App\Http\Controllers\Api\AdminNotificationApiController;
+use App\Http\Controllers\Api\StoreSettingApiController;
+use App\Http\Controllers\Api\AnnouncementBannerApiController;
 use App\Http\Resources\UserResource;
 
 /*
@@ -28,6 +30,10 @@ use App\Http\Resources\UserResource;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
+
+// Public store configuration endpoints
+Route::get('/settings', [StoreSettingApiController::class, 'index']);
+Route::get('/banners',  [AnnouncementBannerApiController::class, 'index']);
 
 Route::get('/products', [ProductApiController::class, 'index']);
 Route::get('/products/{product}', [ProductApiController::class, 'show']);
@@ -96,6 +102,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Push notifications — super_admin only (enforced inside controller)
         Route::post('/notifications/send', [AdminNotificationApiController::class, 'send']);
+
+        // Store settings — super_admin only (enforced inside controller)
+        Route::put('/settings', [StoreSettingApiController::class, 'bulkUpdate']);
+
+        // Announcement banners — super_admin only (enforced inside controller)
+        Route::get   ('/banners',           [AnnouncementBannerApiController::class, 'adminIndex']);
+        Route::post  ('/banners',           [AnnouncementBannerApiController::class, 'store']);
+        Route::put   ('/banners/{banner}',  [AnnouncementBannerApiController::class, 'update']);
+        Route::delete('/banners/{banner}',  [AnnouncementBannerApiController::class, 'destroy']);
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Mail\NewOrderAdmin;
 use App\Mail\OrderConfirmation;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -79,16 +80,34 @@ class CheckoutService
             return $order;
         });
 
-        // Send confirmation email OUTSIDE the transaction so a mail
-        // failure never rolls back a successful order.
+        // Send emails OUTSIDE the transaction so a mail failure never
+        // rolls back a successful order.
+        $user = User::find($userId);
+        if ($user) {
+            $order->setRelation('user', $user);
+        }
+
+        // 1) Customer confirmation
         try {
-            $user = User::find($userId);
             if ($user && $user->email) {
-                $order->setRelation('user', $user);
                 Mail::to($user->email)->queue(new OrderConfirmation($order));
             }
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::warning('Order confirmation email failed: ' . $e->getMessage());
+        }
+
+        // 2) Admin / super_admin notification
+        try {
+            $adminEmails = User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN])
+                ->whereNotNull('email')
+                ->pluck('email')
+                ->all();
+
+            foreach ($adminEmails as $email) {
+                Mail::to($email)->queue(new NewOrderAdmin($order));
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Admin new-order email failed: ' . $e->getMessage());
         }
 
         return $order;
