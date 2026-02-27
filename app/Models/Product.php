@@ -14,16 +14,19 @@ class Product extends Model
         'name',
         'description',
         'price',
+        'compare_at_price',
         'stock',
         'category_id',
         'image',
         'sizes',
         'sizes_stock',
+        'color_options',
     ];
 
     protected $casts = [
-        'sizes' => 'array',
-        'sizes_stock' => 'array',
+        'sizes'           => 'array',
+        'sizes_stock'     => 'array',
+        'color_options'   => 'array',
     ];
 
     public function getAvailableSizesAttribute(): array

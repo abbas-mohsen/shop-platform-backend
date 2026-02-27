@@ -18,11 +18,15 @@ class ProductService
             $data['image'] = $imageFile->store('products', 'public');
         }
 
-        $data['sizes']       = $data['sizes'] ?? [];
-        $data['sizes_stock'] = $this->buildSizesStockArray(
+        $data['sizes']         = $data['sizes'] ?? [];
+        $data['sizes_stock']   = $this->buildSizesStockArray(
             $data['sizes_stock'] ?? null,
             $data['sizes']
         );
+        $data['color_options'] = $this->parseColorOptions($data['color_options'] ?? null);
+        if (empty($data['compare_at_price'])) {
+            $data['compare_at_price'] = null;
+        }
 
         return Product::create($data);
     }
@@ -40,11 +44,15 @@ class ProductService
             $data['image'] = $imageFile->store('products', 'public');
         }
 
-        $data['sizes']       = $data['sizes'] ?? [];
-        $data['sizes_stock'] = $this->buildSizesStockArray(
+        $data['sizes']         = $data['sizes'] ?? [];
+        $data['sizes_stock']   = $this->buildSizesStockArray(
             $data['sizes_stock'] ?? null,
             $data['sizes']
         );
+        $data['color_options'] = $this->parseColorOptions($data['color_options'] ?? null);
+        if (empty($data['compare_at_price'])) {
+            $data['compare_at_price'] = null;
+        }
 
         $product->update($data);
 
@@ -72,6 +80,24 @@ class ProductService
         }
 
         $product->delete();
+    }
+
+    /**
+     * Parse color_options from a comma-separated string to an array.
+     */
+    public function parseColorOptions($raw): ?array
+    {
+        if (is_array($raw)) {
+            $colors = array_values(array_filter(array_map('trim', $raw)));
+            return !empty($colors) ? $colors : null;
+        }
+
+        if (is_string($raw) && trim($raw) !== '') {
+            $colors = array_values(array_filter(array_map('trim', explode(',', $raw))));
+            return !empty($colors) ? $colors : null;
+        }
+
+        return null;
     }
 
     /**

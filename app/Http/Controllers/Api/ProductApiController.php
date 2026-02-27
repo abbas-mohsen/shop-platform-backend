@@ -21,6 +21,7 @@ class ProductApiController extends Controller
      *   sort         - Sort field: price, name, created_at, rating (default: created_at)
      *   order        - Sort direction: asc, desc (default: desc)
      *   per_page     - Results per page (default: 12, max: 100)
+     *   on_sale      - 1 = only products with compare_at_price > price
      */
     public function index(Request $request)
     {
@@ -62,6 +63,12 @@ class ProductApiController extends Controller
         // In-stock only
         if ($request->query('in_stock') === 'true') {
             $query->where('stock', '>', 0);
+        }
+
+        // On-sale filter (compare_at_price > price)
+        if ($request->query('on_sale') === '1') {
+            $query->whereNotNull('compare_at_price')
+                  ->whereColumn('compare_at_price', '>', 'price');
         }
 
         // Sorting

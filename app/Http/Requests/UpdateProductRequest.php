@@ -20,9 +20,11 @@ class UpdateProductRequest extends FormRequest
             'price'       => ['required', 'numeric', 'min:0'],
             'stock'       => ['nullable', 'integer', 'min:0'],
             'image'       => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-            'sizes'       => ['nullable', 'array'],
-            'sizes.*'     => ['string', 'max:10'],
-            'sizes_stock' => ['nullable'],
+            'sizes'            => ['nullable', 'array'],
+            'sizes.*'          => ['string', 'max:10'],
+            'sizes_stock'      => ['nullable'],
+            'compare_at_price' => ['nullable', 'numeric', 'min:0'],
+            'color_options'    => ['nullable', 'string'],
         ];
     }
 }
