@@ -104,7 +104,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/notifications/send', [AdminNotificationApiController::class, 'send']);
 
         // Store settings — super_admin only (enforced inside controller)
-        Route::put('/settings', [StoreSettingApiController::class, 'bulkUpdate']);
+        Route::put   ('/settings',             [StoreSettingApiController::class, 'bulkUpdate']);
+        Route::post  ('/settings/hero-image',  [StoreSettingApiController::class, 'storeHeroImage']);
+        Route::delete('/settings/hero-image',  [StoreSettingApiController::class, 'destroyHeroImage']);
 
         // Announcement banners — super_admin only (enforced inside controller)
         Route::get   ('/banners',           [AnnouncementBannerApiController::class, 'adminIndex']);
