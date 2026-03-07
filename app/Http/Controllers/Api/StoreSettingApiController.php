@@ -17,6 +17,9 @@ class StoreSettingApiController extends Controller
         // Hero images (JSON array of storage paths)
         'hero_images'            => '[]',
 
+        // Hero video (single storage path, or empty)
+        'hero_video'             => '',
+
         // Hero text
         'hero_badge'             => 'New season · 2026',
         'hero_eyebrow'           => 'XTREMEFIT · SS 2026',
@@ -102,8 +105,8 @@ class StoreSettingApiController extends Controller
         }
 
         $allowed = array_keys(self::DEFAULTS);
-        // Exclude hero_images — managed via dedicated upload endpoints
-        $allowed = array_diff($allowed, ['hero_images']);
+        // Exclude hero_images and hero_video — managed via dedicated upload endpoints
+        $allowed = array_diff($allowed, ['hero_images', 'hero_video']);
         $data    = $request->only($allowed);
 
         foreach ($data as $key => $value) {
@@ -163,5 +166,52 @@ class StoreSettingApiController extends Controller
         Storage::disk('public')->delete($pathToRemove);
 
         return response()->json(['message' => 'Image removed.']);
+    }
+
+    /**
+     * POST /api/admin/settings/hero-video (super_admin only)
+     * Upload a hero background video and store its path.
+     */
+    public function storeHeroVideo(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $request->validate([
+            'video' => ['required', 'file', 'mimetypes:video/mp4,video/webm,video/ogg', 'max:102400'],
+        ]);
+
+        // Delete old video file if one exists
+        $old = StoreSetting::getValue('hero_video', '');
+        if ($old) {
+            Storage::disk('public')->delete($old);
+        }
+
+        $path = $request->file('video')->store('hero', 'public');
+        StoreSetting::setValue('hero_video', $path);
+
+        return response()->json(['path' => $path], 201);
+    }
+
+    /**
+     * DELETE /api/admin/settings/hero-video (super_admin only)
+     * Remove the hero video and delete its file.
+     */
+    public function destroyHeroVideo(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $path = StoreSetting::getValue('hero_video', '');
+        if ($path) {
+            Storage::disk('public')->delete($path);
+        }
+        StoreSetting::setValue('hero_video', '');
+
+        return response()->json(['message' => 'Video removed.']);
     }
 }

@@ -1,3 +1,13 @@
+# Increase upload limits for hero video uploads
+LimitRequestBody 120000000
+
+<IfModule mod_php.c>
+    php_value upload_max_filesize 110M
+    php_value post_max_size 115M
+    php_value memory_limit 256M
+    php_value max_execution_time 300
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
