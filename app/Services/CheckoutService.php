@@ -35,6 +35,7 @@ class CheckoutService
                 $product = Product::lockForUpdate()->findOrFail($item['product_id']);
                 $qty     = (int) $item['quantity'];
                 $size    = $item['size'] ?? null;
+                $color   = $item['color'] ?? null;
 
                 $this->validateStock($product, $qty, $size);
 
@@ -46,6 +47,7 @@ class CheckoutService
                     'product'    => $product,
                     'product_id' => $product->id,
                     'size'       => $size,
+                    'color'      => $color,
                     'quantity'   => $qty,
                     'unit_price' => $unitPrice,
                     'line_total' => $lineTotal,
@@ -70,6 +72,7 @@ class CheckoutService
                     'unit_price' => $itemData['unit_price'],
                     'line_total' => $itemData['line_total'],
                     'size'       => $itemData['size'],
+                    'color'      => $itemData['color'],
                 ]);
 
                 $this->deductStock($itemData['product'], $itemData['quantity'], $itemData['size']);

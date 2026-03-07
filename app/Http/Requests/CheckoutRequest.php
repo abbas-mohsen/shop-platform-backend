@@ -20,6 +20,7 @@ class CheckoutRequest extends FormRequest
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity'   => ['required', 'integer', 'min:1'],
             'items.*.size'       => ['nullable', 'string', 'max:20'],
+            'items.*.color'      => ['nullable', 'string', 'max:50'],
         ];
     }
 

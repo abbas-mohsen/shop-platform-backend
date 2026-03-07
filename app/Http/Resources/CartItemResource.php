@@ -13,6 +13,7 @@ class CartItemResource extends JsonResource
             'cart_id'    => $this->cart_id,
             'product_id' => $this->product_id,
             'size'       => $this->size,
+            'color'      => $this->color,
             'quantity'   => (int) $this->quantity,
             'unit_price' => (float) $this->unit_price,
             'product'    => new ProductResource($this->whenLoaded('product')),

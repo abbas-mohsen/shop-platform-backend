@@ -42,11 +42,13 @@ class CartApiController extends Controller
         $data = $request->validate([
             'product_id' => ['required', 'exists:products,id'],
             'size'       => ['nullable', 'string', 'max:50'],
+            'color'      => ['nullable', 'string', 'max:50'],
             'quantity'   => ['required', 'integer', 'min:1'],
         ]);
 
         $product = Product::findOrFail($data['product_id']);
-        $size = $data['size'] ?? null;
+        $size  = $data['size']  ?? null;
+        $color = $data['color'] ?? null;
 
         $cart = Cart::firstOrCreate(
             ['user_id' => $user->id],
@@ -56,6 +58,7 @@ class CartApiController extends Controller
         $item = CartItem::where('cart_id', $cart->id)
             ->where('product_id', $product->id)
             ->where('size', $size)
+            ->where('color', $color)
             ->first();
 
         if ($item) {
@@ -68,6 +71,7 @@ class CartApiController extends Controller
                 'cart_id'    => $cart->id,
                 'product_id' => $product->id,
                 'size'       => $size,
+                'color'      => $color,
                 'quantity'   => $data['quantity'],
                 'unit_price' => $product->price,
             ]);
@@ -127,6 +131,7 @@ class CartApiController extends Controller
         $data = $request->validate([
             'product_id' => ['required', 'exists:products,id'],
             'size'       => ['nullable', 'string', 'max:50'],
+            'color'      => ['nullable', 'string', 'max:50'],
         ]);
 
         $cart = Cart::where('user_id', $user->id)->first();
@@ -138,6 +143,7 @@ class CartApiController extends Controller
         $item = CartItem::where('cart_id', $cart->id)
             ->where('product_id', $data['product_id'])
             ->where('size', $data['size'] ?? null)
+            ->where('color', $data['color'] ?? null)
             ->first();
 
         if ($item) {

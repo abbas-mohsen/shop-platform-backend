@@ -43,7 +43,7 @@
                 <thead>
                     <tr>
                         <th>Product</th>
-                        <th>Size</th>
+                        <th>Size / Color</th>
                         <th>Qty</th>
                         <th>Price</th>
                         <th>Subtotal</th>
@@ -53,7 +53,13 @@
                     @foreach($order->items as $item)
                     <tr>
                         <td>{{ $item->product->name ?? 'N/A' }}</td>
-                        <td>{{ $item->size ?? '—' }}</td>
+                        <td>
+                            {{ $item->size ?? '—' }}
+                            @if($item->color)
+                                <br>
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ $item->color }};border:1px solid #ccc;vertical-align:middle;margin-right:3px;"></span><span style="font-size:11px;color:#666;">{{ $item->color }}</span>
+                            @endif
+                        </td>
                         <td>{{ $item->quantity }}</td>
                         <td>${{ number_format($item->unit_price, 2) }}</td>
                         <td>${{ number_format($item->line_total, 2) }}</td>

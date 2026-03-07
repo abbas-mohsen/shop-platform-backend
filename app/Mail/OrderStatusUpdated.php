@@ -17,7 +17,7 @@ class OrderStatusUpdated extends Mailable implements ShouldQueue
 
     public function __construct(Order $order, string $oldStatus)
     {
-        $this->order     = $order;
+        $this->order     = $order->loadMissing(['items.product', 'user']);
         $this->oldStatus = $oldStatus;
     }
 

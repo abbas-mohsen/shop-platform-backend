@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\DeviceTokenApiController;
 use App\Http\Controllers\Api\AdminNotificationApiController;
 use App\Http\Controllers\Api\StoreSettingApiController;
 use App\Http\Controllers\Api\AnnouncementBannerApiController;
+use App\Http\Controllers\Api\FaqApiController;
 use App\Http\Resources\UserResource;
 
 /*
@@ -39,6 +40,7 @@ Route::get('/products', [ProductApiController::class, 'index']);
 Route::get('/products/{product}', [ProductApiController::class, 'show']);
 Route::get('/products/{product}/reviews', [ReviewApiController::class, 'index']);
 Route::get('/categories', [CategoryApiController::class, 'index']);
+Route::get('/faqs',       [FaqApiController::class, 'index']);
 
 // Rate-limit auth endpoints: 5 attempts per minute to prevent brute-force
 Route::middleware('throttle:5,1')->group(function () {
@@ -102,6 +104,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Push notifications — super_admin only (enforced inside controller)
         Route::post('/notifications/send', [AdminNotificationApiController::class, 'send']);
+
+        // FAQs — super_admin only (enforced inside controller)
+        Route::post  ('/faqs',        [FaqApiController::class, 'store']);
+        Route::put   ('/faqs/{faq}',  [FaqApiController::class, 'update']);
+        Route::delete('/faqs/{faq}',  [FaqApiController::class, 'destroy']);
+
+        // Categories — super_admin only (enforced inside controller)
+        Route::get   ('/categories',              [CategoryApiController::class, 'adminIndex']);
+        Route::post  ('/categories',              [CategoryApiController::class, 'store']);
+        Route::delete('/categories/{category}',   [CategoryApiController::class, 'destroy']);
 
         // Store settings — super_admin only (enforced inside controller)
         Route::put   ('/settings',             [StoreSettingApiController::class, 'bulkUpdate']);

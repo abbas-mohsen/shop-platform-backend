@@ -50,6 +50,17 @@ class StoreSettingApiController extends Controller
         // Delivery
         'free_shipping_enabled'   => '1',
         'free_shipping_threshold' => '100',
+
+        // Contact info
+        'contact_email'   => '',
+        'contact_phone'   => '',
+        'contact_address' => '',
+
+        // About Us page content
+        'about_us' => '',
+
+        // Privacy Policy page content
+        'privacy_policy' => '',
     ];
 
     /**
