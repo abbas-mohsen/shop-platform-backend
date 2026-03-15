@@ -37,7 +37,8 @@ class OrderApiController extends Controller
                 $user->id,
                 $validated['items'],
                 $validated['payment_method'],
-                $validated['address']
+                $validated['address'],
+                $validated['coupon_code'] ?? null
             );
 
             return response()->json([

@@ -19,6 +19,8 @@ use App\Http\Controllers\Api\AdminNotificationApiController;
 use App\Http\Controllers\Api\StoreSettingApiController;
 use App\Http\Controllers\Api\AnnouncementBannerApiController;
 use App\Http\Controllers\Api\FaqApiController;
+use App\Http\Controllers\Api\CouponApiController;
+use App\Http\Controllers\Api\AdminCouponApiController;
 use App\Http\Resources\UserResource;
 
 /*
@@ -65,6 +67,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/checkout', [OrderApiController::class, 'checkout']);
 
+    // Coupon validation (authenticated users)
+    Route::post('/coupons/validate', [CouponApiController::class, 'apply']);
+
     Route::get('/my-orders', [OrderApiController::class, 'myOrders']);
     Route::get('/my-orders/{order}', [OrderApiController::class, 'showMyOrder']);
     Route::put('/orders/{order}/cancel', [OrderApiController::class, 'cancel']);
@@ -90,11 +95,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders', [AdminOrderApiController::class, 'index']);
         Route::put('/orders/{order}', [AdminOrderApiController::class, 'updateStatus']);
         Route::put('/orders/{order}/cancel', [AdminOrderApiController::class, 'cancel']);
-        Route::get   ('/products',           [AdminProductApiController::class, 'index']);
-        Route::get   ('/products/{product}', [AdminProductApiController::class, 'show']);
-        Route::post  ('/products',           [AdminProductApiController::class, 'store']);
-        Route::post  ('/products/{product}', [AdminProductApiController::class, 'update']); // using POST for update
-        Route::delete('/products/{product}', [AdminProductApiController::class, 'destroy']);
+        Route::get   ('/products',              [AdminProductApiController::class, 'index']);
+        Route::get   ('/products/{product}',    [AdminProductApiController::class, 'show']);
+        Route::post  ('/products',              [AdminProductApiController::class, 'store']);
+        Route::post  ('/products/bulk-sale',    [AdminProductApiController::class, 'bulkSale']);
+        Route::delete('/products/bulk-sale',    [AdminProductApiController::class, 'clearSale']);
+        Route::post  ('/products/{product}',    [AdminProductApiController::class, 'update']); // using POST for update
+        Route::delete('/products/{product}',    [AdminProductApiController::class, 'destroy']);
 
         Route::get('/dashboard/overview', [AdminDashboardApiController::class, 'overview']);
 
@@ -127,6 +134,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post  ('/banners',           [AnnouncementBannerApiController::class, 'store']);
         Route::put   ('/banners/{banner}',  [AnnouncementBannerApiController::class, 'update']);
         Route::delete('/banners/{banner}',  [AnnouncementBannerApiController::class, 'destroy']);
+
+        // Coupons — super_admin only (enforced inside controller)
+        Route::get   ('/coupons',                    [AdminCouponApiController::class, 'index']);
+        Route::post  ('/coupons',                    [AdminCouponApiController::class, 'store']);
+        Route::patch ('/coupons/{coupon}/toggle',    [AdminCouponApiController::class, 'toggle']);
+        Route::delete('/coupons/{coupon}',           [AdminCouponApiController::class, 'destroy']);
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);

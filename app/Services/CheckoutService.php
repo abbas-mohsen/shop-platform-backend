@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Mail\NewOrderAdmin;
 use App\Mail\OrderConfirmation;
+use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -16,17 +17,18 @@ class CheckoutService
     /**
      * Process a checkout: validate stock, create order, deduct inventory.
      *
-     * @param  int    $userId
-     * @param  array  $items           [['product_id'=>int, 'quantity'=>int, 'size'=>?string], ...]
-     * @param  string $paymentMethod   'cod' or 'card'
-     * @param  string $address
+     * @param  int     $userId
+     * @param  array   $items           [['product_id'=>int, 'quantity'=>int, 'size'=>?string], ...]
+     * @param  string  $paymentMethod   'cod' or 'card'
+     * @param  string  $address
+     * @param  ?string $couponCode
      * @return Order
      *
      * @throws \App\Exceptions\InsufficientStockException
      */
-    public function execute(int $userId, array $items, string $paymentMethod, string $address): Order
+    public function execute(int $userId, array $items, string $paymentMethod, string $address, ?string $couponCode = null): Order
     {
-        $order = DB::transaction(function () use ($userId, $items, $paymentMethod, $address) {
+        $order = DB::transaction(function () use ($userId, $items, $paymentMethod, $address, $couponCode) {
             $orderTotal    = 0;
             $preparedItems = [];
 
@@ -54,16 +56,36 @@ class CheckoutService
                 ];
             }
 
-            // 2) Create Order
+            // 2) Apply coupon if provided
+            $discountAmount  = 0;
+            $appliedCoupon   = null;
+
+            if ($couponCode) {
+                $coupon = Coupon::lockForUpdate()
+                    ->where('code', strtoupper(trim($couponCode)))
+                    ->first();
+
+                if ($coupon && $coupon->isValidFor($orderTotal)) {
+                    $discountAmount = $coupon->calculateDiscount($orderTotal);
+                    $coupon->increment('used_count');
+                    $appliedCoupon = $coupon;
+                }
+            }
+
+            $finalTotal = max(0, round($orderTotal - $discountAmount, 2));
+
+            // 3) Create Order
             $order = Order::create([
-                'user_id'        => $userId,
-                'payment_method' => $paymentMethod,
-                'status'         => 'pending',
-                'total'          => $orderTotal,
-                'address'        => $address,
+                'user_id'         => $userId,
+                'payment_method'  => $paymentMethod,
+                'status'          => 'pending',
+                'total'           => $finalTotal,
+                'address'         => $address,
+                'coupon_code'     => $appliedCoupon ? $appliedCoupon->code : null,
+                'discount_amount' => $discountAmount,
             ]);
 
-            // 3) Create line items and deduct stock
+            // 4) Create line items and deduct stock
             foreach ($preparedItems as $itemData) {
                 OrderItem::create([
                     'order_id'   => $order->id,
