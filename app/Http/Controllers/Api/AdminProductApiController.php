@@ -60,13 +60,6 @@ class AdminProductApiController extends Controller
         return response()->json(['message' => 'deleted']);
     }
 
-    /**
-     * POST /api/admin/products/bulk-sale
-     * Body: { discount_percent: 20 }
-     *
-     * For every product that is NOT already on sale (compare_at_price is null),
-     * save the original price in compare_at_price and apply the discount to price.
-     */
     public function bulkSale(Request $request)
     {
         $request->validate([
@@ -90,11 +83,6 @@ class AdminProductApiController extends Controller
         ]);
     }
 
-    /**
-     * DELETE /api/admin/products/bulk-sale
-     *
-     * Restores original prices for all products that have a compare_at_price set.
-     */
     public function clearSale()
     {
         $updated = Product::whereNotNull('compare_at_price')

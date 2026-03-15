@@ -26,9 +26,6 @@ class Coupon extends Model
         'expires_at'       => 'datetime',
     ];
 
-    /**
-     * Check if the coupon is currently usable for a given order total.
-     */
     public function isValidFor(float $orderTotal): bool
     {
         if (! $this->is_active) {
@@ -50,9 +47,6 @@ class Coupon extends Model
         return true;
     }
 
-    /**
-     * Calculate the discount amount for a given order total.
-     */
     public function calculateDiscount(float $orderTotal): float
     {
         if ($this->discount_type === 'percentage') {

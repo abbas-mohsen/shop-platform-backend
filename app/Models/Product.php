@@ -21,12 +21,14 @@ class Product extends Model
         'sizes',
         'sizes_stock',
         'color_options',
+        'colors_stock',
     ];
 
     protected $casts = [
         'sizes'           => 'array',
         'sizes_stock'     => 'array',
         'color_options'   => 'array',
+        'colors_stock'    => 'array',
     ];
 
     public function getAvailableSizesAttribute(): array

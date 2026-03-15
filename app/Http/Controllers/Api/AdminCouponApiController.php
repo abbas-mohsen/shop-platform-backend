@@ -9,10 +9,6 @@ use Illuminate\Support\Str;
 
 class AdminCouponApiController extends Controller
 {
-    /**
-     * GET /api/admin/coupons
-     * Super-admin only (enforced here).
-     */
     public function index(Request $request)
     {
         $user = $request->user();
@@ -25,11 +21,6 @@ class AdminCouponApiController extends Controller
         return response()->json($coupons);
     }
 
-    /**
-     * POST /api/admin/coupons
-     * Body: { code?, discount_type, discount_value, min_order_amount?, max_uses?, expires_at? }
-     * If code is omitted, a random 8-character code is generated.
-     */
     public function store(Request $request)
     {
         $user = $request->user();
@@ -60,10 +51,6 @@ class AdminCouponApiController extends Controller
         return response()->json($coupon, 201);
     }
 
-    /**
-     * PATCH /api/admin/coupons/{coupon}/toggle
-     * Flip is_active.
-     */
     public function toggle(Request $request, Coupon $coupon)
     {
         $user = $request->user();
@@ -76,9 +63,6 @@ class AdminCouponApiController extends Controller
         return response()->json($coupon);
     }
 
-    /**
-     * DELETE /api/admin/coupons/{coupon}
-     */
     public function destroy(Request $request, Coupon $coupon)
     {
         $user = $request->user();

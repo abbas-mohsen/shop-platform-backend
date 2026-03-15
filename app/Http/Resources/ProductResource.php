@@ -20,6 +20,7 @@ class ProductResource extends JsonResource
             'sizes'              => $this->sizes,
             'sizes_stock'        => $this->sizes_stock,
             'color_options'      => $this->color_options,
+            'colors_stock'       => $this->colors_stock,
             'available_sizes'    => $this->available_sizes,
             'category'           => new CategoryResource($this->whenLoaded('category')),
             'reviews_count'      => $this->when(isset($this->reviews_count), $this->reviews_count),

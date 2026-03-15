@@ -8,12 +8,6 @@ use Illuminate\Http\Request;
 
 class CouponApiController extends Controller
 {
-    /**
-     * POST /api/coupons/validate
-     * Authenticated users only.
-     * Body: { code, cart_total }
-     * Returns discount info without consuming the coupon.
-     */
     public function apply(Request $request)
     {
         $request->validate([

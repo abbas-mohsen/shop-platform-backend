@@ -9,9 +9,6 @@ use Illuminate\Validation\ValidationException;
 
 class ProductService
 {
-    /**
-     * Create a new product, handling image upload and sizes_stock parsing.
-     */
     public function create(array $data, $imageFile = null): Product
     {
         if ($imageFile) {
@@ -19,11 +16,24 @@ class ProductService
         }
 
         $data['sizes']         = $data['sizes'] ?? [];
-        $data['sizes_stock']   = $this->buildSizesStockArray(
-            $data['sizes_stock'] ?? null,
-            $data['sizes']
-        );
         $data['color_options'] = $this->parseColorOptions($data['color_options'] ?? null);
+
+        $colorsStock = $this->buildColorsStockArray(
+            $data['colors_stock'] ?? null,
+            $data['sizes'],
+            $data['color_options'] ?? []
+        );
+        $data['colors_stock'] = $colorsStock;
+
+        if ($colorsStock) {
+            $data['sizes_stock'] = $this->deriveSizesStockFromColors($colorsStock);
+        } else {
+            $data['sizes_stock'] = $this->buildSizesStockArray(
+                $data['sizes_stock'] ?? null,
+                $data['sizes']
+            );
+        }
+
         if (empty($data['compare_at_price'])) {
             $data['compare_at_price'] = null;
         }
@@ -31,13 +41,9 @@ class ProductService
         return Product::create($data);
     }
 
-    /**
-     * Update an existing product, handling image replacement.
-     */
     public function update(Product $product, array $data, $imageFile = null): Product
     {
         if ($imageFile) {
-            // Delete old image
             if ($product->image) {
                 Storage::disk('public')->delete($product->image);
             }
@@ -45,11 +51,24 @@ class ProductService
         }
 
         $data['sizes']         = $data['sizes'] ?? [];
-        $data['sizes_stock']   = $this->buildSizesStockArray(
-            $data['sizes_stock'] ?? null,
-            $data['sizes']
-        );
         $data['color_options'] = $this->parseColorOptions($data['color_options'] ?? null);
+
+        $colorsStock = $this->buildColorsStockArray(
+            $data['colors_stock'] ?? null,
+            $data['sizes'],
+            $data['color_options'] ?? []
+        );
+        $data['colors_stock'] = $colorsStock;
+
+        if ($colorsStock) {
+            $data['sizes_stock'] = $this->deriveSizesStockFromColors($colorsStock);
+        } else {
+            $data['sizes_stock'] = $this->buildSizesStockArray(
+                $data['sizes_stock'] ?? null,
+                $data['sizes']
+            );
+        }
+
         if (empty($data['compare_at_price'])) {
             $data['compare_at_price'] = null;
         }
@@ -59,10 +78,6 @@ class ProductService
         return $product;
     }
 
-    /**
-     * Delete a product and its associated image.
-     * Blocks deletion if the product is part of a pending or approved order.
-     */
     public function delete(Product $product): void
     {
         $activeOrderExists = OrderItem::where('product_id', $product->id)
@@ -82,9 +97,6 @@ class ProductService
         $product->delete();
     }
 
-    /**
-     * Parse color_options from a comma-separated string to an array.
-     */
     public function parseColorOptions($raw): ?array
     {
         if (is_array($raw)) {
@@ -100,9 +112,6 @@ class ProductService
         return null;
     }
 
-    /**
-     * Parse sizes_stock from a JSON string or array based on selected sizes.
-     */
     public function buildSizesStockArray($rawSizesStock, array $sizes): ?array
     {
         if (empty($sizes)) {
@@ -111,11 +120,7 @@ class ProductService
 
         if (is_string($rawSizesStock)) {
             $decoded = json_decode($rawSizesStock, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $rawSizesStock = $decoded;
-            } else {
-                $rawSizesStock = null;
-            }
+            $rawSizesStock = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
         }
 
         if (!is_array($rawSizesStock)) {
@@ -130,5 +135,45 @@ class ProductService
         }
 
         return !empty($result) ? $result : null;
+    }
+
+    public function buildColorsStockArray($rawColorsStock, array $sizes, ?array $colors): ?array
+    {
+        if (empty($sizes) || empty($colors)) {
+            return null;
+        }
+
+        if (is_string($rawColorsStock)) {
+            $decoded = json_decode($rawColorsStock, true);
+            $rawColorsStock = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+        }
+
+        if (!is_array($rawColorsStock)) {
+            return null;
+        }
+
+        $result = [];
+        foreach ($sizes as $size) {
+            if (isset($rawColorsStock[$size]) && is_array($rawColorsStock[$size])) {
+                foreach ($colors as $color) {
+                    if (array_key_exists($color, $rawColorsStock[$size])) {
+                        $result[$size][$color] = max(0, (int) $rawColorsStock[$size][$color]);
+                    }
+                }
+            }
+        }
+
+        return !empty($result) ? $result : null;
+    }
+
+    private function deriveSizesStockFromColors(array $colorsStock): array
+    {
+        $result = [];
+        foreach ($colorsStock as $size => $colorMap) {
+            if (is_array($colorMap)) {
+                $result[$size] = (int) array_sum($colorMap);
+            }
+        }
+        return $result;
     }
 }
