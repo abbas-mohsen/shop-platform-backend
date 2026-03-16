@@ -3,20 +3,15 @@
 namespace App\Mail;
 
 use App\Models\Order;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 
-class NewOrderAdmin extends Mailable implements ShouldQueue
+class NewOrderAdmin extends Mailable
 {
-    use Queueable, SerializesModels;
-
     public Order $order;
 
     public function __construct(Order $order)
     {
-        $this->order = $order;
+        $this->order = $order->loadMissing(['items.product', 'user']);
     }
 
     public function build()

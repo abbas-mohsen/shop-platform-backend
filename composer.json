@@ -6,6 +6,7 @@
     "license": "MIT",
     "require": {
         "php": "^7.3|^8.0",
+        "barryvdh/laravel-dompdf": "^0.9",
         "fruitcake/laravel-cors": "^2.0",
         "guzzlehttp/guzzle": "^7.0.1",
         "laravel/framework": "^8.75",
@@ -57,7 +58,22 @@
     "config": {
         "optimize-autoloader": true,
         "preferred-install": "dist",
-        "sort-packages": true
+        "sort-packages": true,
+        "audit": {
+            "abandoned": "report",
+            "ignore": [
+                "PKSA-qstp-ffwg-8hp6",
+                "PKSA-5vz3-q51h-7mg4",
+                "PKSA-7ztm-rpt3-qqzk",
+                "PKSA-4jrs-y99s-q8j6",
+                "PKSA-hbk6-2vfz-8f8n",
+                "PKSA-kj9c-tr41-t8mj",
+                "PKSA-872h-8556-2chm",
+                "PKSA-qsyb-3psh-f1t3",
+                "PKSA-3dsp-r6t7-8xmz",
+                "PKSA-cwpj-dtf9-6fg1"
+            ]
+        }
     },
     "minimum-stability": "dev",
     "prefer-stable": true

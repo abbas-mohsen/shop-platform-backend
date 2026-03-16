@@ -47,8 +47,7 @@ class OrderApiController extends Controller
             ], 201);
         } catch (InsufficientStockException $e) {
             return response()->json([
-                'message' => 'Not enough stock.',
-                'error'   => $e->getMessage(),
+                'message' => $e->getMessage(),
             ], 422);
         }
     }

@@ -5,8 +5,8 @@
     <style>
         body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 30px auto; background: #fff; border-radius: 8px; overflow: hidden; }
-        .header { background: #1a1a2e; color: #fff; padding: 24px; text-align: center; }
-        .header h1 { margin: 0; font-size: 22px; letter-spacing: 1px; }
+        .header { background: #1a1a2e; color: #fff; padding: 20px 24px; text-align: center; }
+        .header img { height: 56px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto; }
         .body { padding: 32px 24px; color: #333; }
         .body h2 { color: #1a1a2e; margin-top: 0; font-size: 20px; }
         .info-box { background: #f9f9f9; padding: 16px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #e67e22; }
@@ -32,7 +32,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>XTREMEFIT</h1>
+            <img src="{{ $message->embed(public_path('images/logo.jpg')) }}" alt="XTREMEFIT">
         </div>
         <div class="body">
             <h2>Reset Your Password</h2>

@@ -41,8 +41,17 @@ return [
             'encryption' => env('MAIL_ENCRYPTION', 'tls'),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            'timeout' => 30,
             'auth_mode' => null,
+            'stream' => [
+                'ssl' => [
+                    'allow_self_signed' => true,
+                    'verify_peer'       => false,
+                    'verify_peer_name'  => false,
+                    'cafile'            => env('GOOGLE_CA_BUNDLE'),
+                    'crypto_method'     => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
+                ],
+            ],
         ],
 
         'ses' => [

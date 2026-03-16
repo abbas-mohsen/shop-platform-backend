@@ -2,15 +2,11 @@
 
 namespace App\Services;
 
-use App\Mail\NewOrderAdmin;
-use App\Mail\OrderConfirmation;
 use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 
 class CheckoutService
 {
@@ -94,25 +90,21 @@ class CheckoutService
             $order->setRelation('user', $user);
         }
 
+        // Dispatch email sending as a background process so the HTTP response
+        // is never blocked by SMTP latency or timeouts.
         try {
-            if ($user && $user->email) {
-                Mail::to($user->email)->queue(new OrderConfirmation($order));
+            $php     = PHP_BINARY;
+            $artisan = base_path('artisan');
+            $id      = (int) $order->id;
+
+            if (PHP_OS_FAMILY === 'Windows') {
+                // start /B launches detached; cmd.exe exits immediately
+                pclose(popen("start /B \"\" \"{$php}\" \"{$artisan}\" order:send-emails {$id} > NUL 2>&1", 'r'));
+            } else {
+                exec("\"{$php}\" \"{$artisan}\" order:send-emails {$id} > /dev/null 2>&1 &");
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Order confirmation email failed: ' . $e->getMessage());
-        }
-
-        try {
-            $adminEmails = User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN])
-                ->whereNotNull('email')
-                ->pluck('email')
-                ->all();
-
-            foreach ($adminEmails as $email) {
-                Mail::to($email)->queue(new NewOrderAdmin($order));
-            }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Admin new-order email failed: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::warning('Could not dispatch email background job: ' . $e->getMessage());
         }
 
         return $order;

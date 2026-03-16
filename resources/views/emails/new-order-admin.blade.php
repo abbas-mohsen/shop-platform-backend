@@ -5,8 +5,8 @@
     <style>
         body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 30px auto; background: #fff; border-radius: 8px; overflow: hidden; }
-        .header { background: #1a1a2e; color: #fff; padding: 24px; text-align: center; }
-        .header h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: 1px; }
+        .header { background: #1a1a2e; color: #fff; padding: 20px 24px; text-align: center; }
+        .header img { height: 56px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto 6px; }
         .header p { margin: 0; font-size: 13px; color: #aaa; }
         .alert-bar { background: #e67e22; color: #fff; text-align: center; padding: 10px 24px; font-size: 14px; font-weight: bold; letter-spacing: 0.5px; }
         .body { padding: 28px 24px; color: #333; }
@@ -25,7 +25,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>XTREMEFIT</h1>
+            <img src="{{ $message->embed(public_path('images/logo.jpg')) }}" alt="XTREMEFIT">
             <p>Admin Notification</p>
         </div>
         <div class="alert-bar">
@@ -71,7 +71,7 @@
                             {{ $item->size ?? '—' }}
                             @if($item->color)
                                 <br>
-                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ $item->color }};border:1px solid #ccc;vertical-align:middle;margin-right:3px;"></span><span style="font-size:11px;color:#666;">{{ $item->color }}</span>
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ $item->color }};border:1px solid #ccc;vertical-align:middle;margin-right:3px;"></span>
                             @endif
                         </td>
                         <td>{{ $item->quantity }}</td>
