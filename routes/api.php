@@ -34,6 +34,16 @@ use App\Http\Resources\UserResource;
 |
 */
 
+// Public media streaming route — serves storage files via Laravel's BinaryFileResponse,
+// which correctly handles HTTP Range requests (required by iOS AVPlayer / ExoPlayer).
+// php artisan serve's built-in static handler does NOT support Range requests.
+Route::get('/media/{path}', function (string $path) {
+    $path = ltrim(preg_replace('/\.\.+/', '', $path), '/');
+    $fullPath = storage_path('app/public/' . $path);
+    abort_unless(is_file($fullPath), 404);
+    return response()->file($fullPath, ['Cache-Control' => 'public, max-age=86400']);
+})->where('path', '.*');
+
 // Public store configuration endpoints
 Route::get('/settings', [StoreSettingApiController::class, 'index']);
 Route::get('/banners',  [AnnouncementBannerApiController::class, 'index']);
@@ -130,6 +140,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/settings/hero-image-mobile',  [StoreSettingApiController::class, 'destroyHeroImageMobile']);
         Route::post  ('/settings/hero-video',         [StoreSettingApiController::class, 'storeHeroVideo']);
         Route::delete('/settings/hero-video',         [StoreSettingApiController::class, 'destroyHeroVideo']);
+        Route::post  ('/settings/hero-video-mobile',  [StoreSettingApiController::class, 'storeHeroVideoMobile']);
+        Route::delete('/settings/hero-video-mobile',  [StoreSettingApiController::class, 'destroyHeroVideoMobile']);
 
         // Announcement banners — super_admin only (enforced inside controller)
         Route::get   ('/banners',           [AnnouncementBannerApiController::class, 'adminIndex']);

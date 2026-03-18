@@ -20,7 +20,9 @@ class StoreSettingApiController extends Controller
         'hero_images_mobile'     => '[]',
 
         // Hero video (single storage path, or empty)
-        'hero_video'             => '',
+        'hero_video'        => '',
+        // Hero video for mobile (portrait-optimised, separate from desktop)
+        'hero_video_mobile' => '',
 
         // Hero text
         'hero_badge'             => 'New season · 2026',
@@ -53,6 +55,7 @@ class StoreSettingApiController extends Controller
         'trust_3_text'           => 'Easy returns',
 
         // Delivery
+        'delivery_charge'         => '0',
         'free_shipping_enabled'   => '1',
         'free_shipping_threshold' => '100',
 
@@ -85,6 +88,8 @@ class StoreSettingApiController extends Controller
                 $result[$key] = (bool) $value;
             } elseif ($key === 'free_shipping_threshold') {
                 $result[$key] = (int) $value;
+            } elseif ($key === 'delivery_charge') {
+                $result[$key] = (float) $value;
             } elseif ($key === 'hero_images' || $key === 'hero_images_mobile') {
                 $result[$key] = json_decode($value ?: '[]', true) ?? [];
             } else {
@@ -102,14 +107,18 @@ class StoreSettingApiController extends Controller
     public function bulkUpdate(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->isSuperAdmin()) {
+        if (! $user || (! $user->isSuperAdmin() && ! $user->isAdmin())) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        $allowed = array_keys(self::DEFAULTS);
-        // Exclude hero_images and hero_video — managed via dedicated upload endpoints
-        $allowed = array_diff($allowed, ['hero_images', 'hero_images_mobile', 'hero_video']);
-        $data    = $request->only($allowed);
+        // All admins may update delivery/shipping fields; super admins update everything.
+        $shippingKeys = ['delivery_charge', 'free_shipping_enabled', 'free_shipping_threshold'];
+
+        $allowed = $user->isSuperAdmin()
+            ? array_diff(array_keys(self::DEFAULTS), ['hero_images', 'hero_images_mobile', 'hero_video', 'hero_video_mobile'])
+            : $shippingKeys;
+
+        $data = $request->only($allowed);
 
         foreach ($data as $key => $value) {
             StoreSetting::setValue($key, $value);
@@ -182,7 +191,7 @@ class StoreSettingApiController extends Controller
         }
 
         $request->validate([
-            'video' => ['required', 'file', 'mimetypes:video/mp4,video/webm,video/ogg', 'max:102400'],
+            'video' => ['required', 'file', 'mimetypes:video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo', 'max:102400'],
         ]);
 
         // Delete old video file if one exists
@@ -265,5 +274,51 @@ class StoreSettingApiController extends Controller
         Storage::disk('public')->delete($pathToRemove);
 
         return response()->json(['message' => 'Image removed.']);
+    }
+
+    /**
+     * POST /api/admin/settings/hero-video-mobile (super_admin only)
+     * Upload a portrait hero video for the mobile app.
+     */
+    public function storeHeroVideoMobile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $request->validate([
+            'video' => ['required', 'file', 'mimetypes:video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo', 'max:102400'],
+        ]);
+
+        $old = StoreSetting::getValue('hero_video_mobile', '');
+        if ($old) {
+            Storage::disk('public')->delete($old);
+        }
+
+        $path = $request->file('video')->store('hero/mobile', 'public');
+        StoreSetting::setValue('hero_video_mobile', $path);
+
+        return response()->json(['path' => $path], 201);
+    }
+
+    /**
+     * DELETE /api/admin/settings/hero-video-mobile (super_admin only)
+     * Remove the mobile hero video and delete its file.
+     */
+    public function destroyHeroVideoMobile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $path = StoreSetting::getValue('hero_video_mobile', '');
+        if ($path) {
+            Storage::disk('public')->delete($path);
+        }
+        StoreSetting::setValue('hero_video_mobile', '');
+
+        return response()->json(['message' => 'Mobile video removed.']);
     }
 }
