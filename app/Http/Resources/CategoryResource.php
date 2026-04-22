@@ -12,6 +12,7 @@ class CategoryResource extends JsonResource
             'id'          => $this->id,
             'name'        => $this->name,
             'description' => $this->description,
+            'products_count' => $this->whenCounted('products'),
             'products'    => ProductResource::collection($this->whenLoaded('products')),
         ];
     }

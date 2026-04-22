@@ -15,7 +15,7 @@ class CategoryApiController extends Controller
     {
         // Cache categories for 1 hour — they rarely change
         $categories = Cache::remember('categories:all', 3600, function () {
-            return Category::all();
+            return Category::withCount('products')->get();
         });
 
         return CategoryResource::collection($categories);

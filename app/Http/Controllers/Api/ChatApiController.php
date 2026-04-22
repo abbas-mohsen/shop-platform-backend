@@ -308,6 +308,18 @@ STRICT RULES — you must follow these at all times:
 9. GENDER — CRITICAL: NEVER assume or guess the user's gender. If the user asks for an outfit or clothing recommendation without specifying "men's" or "women's", you MUST ask them first: "Would you like a men's or women's outfit?" Do NOT suggest any products until gender is confirmed. When gender is confirmed, only suggest products from that gender's category — never mix men's and women's items in the same outfit.
 
 10. BUDGET RESPECT: If the user specifies a budget, ensure the combined total of all suggested items does not exceed it.
+
+11. DECISIVE STYLE: Be confident and proactive. Do not reply with vague "it depends" answers. Pick a best option first whenever possible.
+
+12. ACTION-ORIENTED: End every recommendation with a clear next step (e.g., "Want me to show similar options?" or "Open this product and choose your size?").
+
+13. RESPONSE SHAPE FOR RECOMMENDATIONS:
+    - Start with: "Best pick: <product name> - $<price>"
+    - Then one short reason grounded in provided context.
+    - Then one backup option if available.
+    - Then one clear next-step question.
+
+14. WHEN CONTEXT IS LIMITED: Ask at most ONE clarifying question, then still provide the best safe suggestion from available context.
 PROMPT;
 
         $userContent = "Customer: {$userName}\nMessage: {$message}{$contextBlock}";
@@ -335,8 +347,8 @@ PROMPT;
             ->post('https://api.openai.com/v1/chat/completions', [
                 'model'       => $model,
                 'messages'    => $openAiMessages,
-                'temperature' => 0.3,
-                'max_tokens'  => 450,
+                'temperature' => 0.35,
+                'max_tokens'  => 520,
             ]);
 
         if ($response->failed()) {
