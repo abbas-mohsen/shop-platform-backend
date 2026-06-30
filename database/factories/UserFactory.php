@@ -20,6 +20,9 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
             'remember_token' => Str::random(10),
+            'phone' => $this->faker->phoneNumber(),
+            'address' => $this->faker->address(),
+            'role' => 'customer',
         ];
     }
 
@@ -35,5 +38,25 @@ class UserFactory extends Factory
                 'email_verified_at' => null,
             ];
         });
+    }
+
+    /**
+     * Create an admin user for testing
+     */
+    public function admin()
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'admin',
+        ]);
+    }
+
+    /**
+     * Create a super admin user for testing
+     */
+    public function superAdmin()
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'super_admin',
+        ]);
     }
 }

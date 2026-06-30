@@ -15,6 +15,8 @@ class OrderResource extends JsonResource
             'status'          => $this->status,
             'payment_method'  => $this->payment_method,
             'address'         => $this->address,
+            'latitude'        => $this->latitude ? (float) $this->latitude : null,
+            'longitude'       => $this->longitude ? (float) $this->longitude : null,
             'coupon_code'     => $this->coupon_code,
             'discount_amount' => (float) ($this->discount_amount ?? 0),
             'user'           => new UserResource($this->whenLoaded('user')),

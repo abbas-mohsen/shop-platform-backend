@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Product;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -68,18 +69,28 @@ class AdminDashboardApiController extends Controller
             ->orderByDesc('total_spent')
             ->get();
 
+        $lowStockProducts = Product::where('stock', '<=', 5)
+            ->select('id', 'name', 'stock', 'image')
+            ->orderBy('stock')
+            ->take(10)
+            ->get();
+
+        $outOfStockCount = Product::where('stock', 0)->count();
+
         return [
-            'total_orders'  => $totalOrders,
-            'total_revenue' => $totalRevenue,
+            'total_orders'       => $totalOrders,
+            'total_revenue'      => $totalRevenue,
+            'out_of_stock_count' => $outOfStockCount,
             'status_counts' => [
                 'pending'   => $statusCounts['pending']   ?? 0,
                 'paid'      => $statusCounts['paid']      ?? 0,
                 'shipped'   => $statusCounts['shipped']   ?? 0,
                 'cancelled' => $statusCounts['cancelled'] ?? 0,
             ],
-            'last_7_days'   => $last7Days,
-            'top_products'  => $topProducts,
-            'top_customers' => $topCustomers,
+            'last_7_days'        => $last7Days,
+            'top_products'       => $topProducts,
+            'top_customers'      => $topCustomers,
+            'low_stock_products' => $lowStockProducts,
         ];
     }
 }

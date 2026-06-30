@@ -16,6 +16,8 @@ class Order extends Model
         'status',
         'payment_method',
         'address',
+        'latitude',
+        'longitude',
         'coupon_code',
         'discount_amount',
     ];

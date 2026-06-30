@@ -6,13 +6,14 @@ use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class CheckoutService
 {
-    public function execute(int $userId, array $items, string $paymentMethod, string $address, ?string $couponCode = null): Order
+    public function execute(int $userId, array $items, string $paymentMethod, string $address, ?string $couponCode = null, ?float $latitude = null, ?float $longitude = null): Order
     {
-        $order = DB::transaction(function () use ($userId, $items, $paymentMethod, $address, $couponCode) {
+        $order = DB::transaction(function () use ($userId, $items, $paymentMethod, $address, $couponCode, $latitude, $longitude) {
             $orderTotal    = 0;
             $preparedItems = [];
 
@@ -62,6 +63,8 @@ class CheckoutService
                 'status'          => 'pending',
                 'total'           => $finalTotal,
                 'address'         => $address,
+                'latitude'        => $latitude,
+                'longitude'       => $longitude,
                 'coupon_code'     => $appliedCoupon ? $appliedCoupon->code : null,
                 'discount_amount' => $discountAmount,
             ]);

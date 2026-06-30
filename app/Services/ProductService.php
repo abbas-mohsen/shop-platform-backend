@@ -4,11 +4,19 @@ namespace App\Services;
 
 use App\Models\OrderItem;
 use App\Models\Product;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class ProductService
 {
+    private EmbeddingService $embeddingService;
+
+    public function __construct(EmbeddingService $embeddingService)
+    {
+        $this->embeddingService = $embeddingService;
+    }
+
     public function create(array $data, $imageFile = null): Product
     {
         if ($imageFile) {
@@ -38,7 +46,10 @@ class ProductService
             $data['compare_at_price'] = null;
         }
 
-        return Product::create($data);
+        $product = Product::create($data);
+        $this->embedProduct($product);
+
+        return $product;
     }
 
     public function update(Product $product, array $data, $imageFile = null): Product
@@ -74,8 +85,23 @@ class ProductService
         }
 
         $product->update($data);
+        $this->embedProduct($product);
 
         return $product;
+    }
+
+    private function embedProduct(Product $product): void
+    {
+        try {
+            $product->load('category');
+            $vector = $this->embeddingService->embed($this->embeddingService->textForProduct($product));
+            $product->update(['embedding' => $vector]);
+        } catch (\Throwable $e) {
+            Log::error('Product embedding failed', [
+                'product_id' => $product->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
     }
 
     public function delete(Product $product): void

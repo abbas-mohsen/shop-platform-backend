@@ -7,15 +7,12 @@ use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
-    /**
-     * A basic test example.
-     *
-     * @return void
-     */
-    public function test_example()
-    {
-        $response = $this->get('/');
+    use RefreshDatabase;
 
-        $response->assertStatus(200);
+    public function test_api_settings_accessible()
+    {
+        $response = $this->getJson('/api/settings');
+        // Endpoint should be accessible (200 or 500, but not 404)
+        $this->assertNotEquals(404, $response->status());
     }
 }

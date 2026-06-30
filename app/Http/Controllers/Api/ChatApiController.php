@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\EmbeddingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -12,6 +13,13 @@ use Illuminate\Support\Facades\Log;
 
 class ChatApiController extends Controller
 {
+    private EmbeddingService $embeddingService;
+
+    public function __construct(EmbeddingService $embeddingService)
+    {
+        $this->embeddingService = $embeddingService;
+    }
+
     /**
      * POST /api/chat
      * Body: { "message": "...", "context": { path?, page?, product_id? } }
@@ -184,8 +192,8 @@ class ChatApiController extends Controller
             $categoryIds = $catQuery->pluck('id')->toArray();
         }
 
-        // ── Build product query ────────────────────────────────────────────────
-        $query = Product::with('category')->orderBy('price', 'asc');
+        // ── Build candidate pool (metadata filters: budget, gender/category) ──────
+        $query = Product::with('category')->whereNotNull('embedding');
 
         if ($budget !== null) {
             $query->where('price', '<=', $budget);
@@ -195,12 +203,27 @@ class ChatApiController extends Controller
             $query->whereIn('category_id', $categoryIds);
         }
 
+        $candidates = $query->limit(200)->get(['id', 'name', 'price', 'compare_at_price', 'image', 'category_id', 'embedding']);
+
+        if ($candidates->isEmpty()) {
+            return [[], false];
+        }
+
+        // ── Semantic retrieval: rank candidates by similarity to the query ────────
+        $queryVector = $this->embeddingService->embed($message);
+
+        $ranked = $candidates
+            ->map(function ($p) use ($queryVector) {
+                $p->similarity = $this->embeddingService->cosineSimilarity($queryVector, $p->embedding);
+                return $p;
+            })
+            ->sortByDesc('similarity');
+
         if ($isOutfit) {
-            // Pick one product per category for a coherent outfit
-            $all = $query->limit(40)->get(['id', 'name', 'price', 'compare_at_price', 'image', 'category_id']);
+            // Pick the best-matching product per category for a coherent outfit
             $seenCategories = [];
             $picked = [];
-            foreach ($all as $p) {
+            foreach ($ranked as $p) {
                 if (!in_array($p->category_id, $seenCategories)) {
                     $seenCategories[] = $p->category_id;
                     $picked[] = $p;
@@ -211,7 +234,7 @@ class ChatApiController extends Controller
             }
             $products = collect($picked);
         } else {
-            $products = $query->limit(3)->get(['id', 'name', 'price', 'compare_at_price', 'image', 'category_id']);
+            $products = $ranked->take(3);
         }
 
         $result = $products->map(fn ($p) => [

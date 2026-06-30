@@ -17,6 +17,8 @@ class CheckoutRequest extends FormRequest
             'address'            => ['required', 'string', 'max:500'],
             'payment_method'     => ['required', 'in:cash,card'],
             'coupon_code'        => ['nullable', 'string', 'max:50'],
+            'latitude'           => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude'          => ['nullable', 'numeric', 'between:-180,180'],
             'items'              => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity'   => ['required', 'integer', 'min:1'],

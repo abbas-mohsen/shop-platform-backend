@@ -22,6 +22,7 @@ class Product extends Model
         'sizes_stock',
         'color_options',
         'colors_stock',
+        'embedding',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class Product extends Model
         'sizes_stock'     => 'array',
         'color_options'   => 'array',
         'colors_stock'    => 'array',
+        'embedding'       => 'array',
     ];
 
     public function getAvailableSizesAttribute(): array
