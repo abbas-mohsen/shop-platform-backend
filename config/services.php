@@ -45,5 +45,8 @@ return [
     'embedding_model' => env('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small'),
     ],
 
+    'fashn' => [
+        'key' => env('FASHN_API_KEY'),
+    ],
 
 ];

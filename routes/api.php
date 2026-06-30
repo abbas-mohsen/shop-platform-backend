@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\AnnouncementBannerApiController;
 use App\Http\Controllers\Api\FaqApiController;
 use App\Http\Controllers\Api\CouponApiController;
 use App\Http\Controllers\Api\AdminCouponApiController;
+use App\Http\Controllers\Api\TryOnApiController;
 use App\Http\Resources\UserResource;
 
 /*
@@ -74,6 +75,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/password', [AuthController::class, 'updatePassword']);
 
     Route::post('/chat', [ChatApiController::class, 'chat']);
+
+    // Virtual try-on — rate limited to control FASHN API costs (5 generations/min per user)
+    Route::middleware('throttle:5,1')->post(
+        '/products/{product}/try-on',
+        [TryOnApiController::class, 'generate']
+    );
 
     Route::post('/checkout', [OrderApiController::class, 'checkout']);
 
