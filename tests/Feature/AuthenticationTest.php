@@ -19,7 +19,8 @@ class AuthenticationTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertStatus(200)
+        // API returns 201 Created with the new user + token
+        $response->assertStatus(201)
             ->assertJsonStructure(['user', 'token']);
 
         $this->assertDatabaseHas('users', [
@@ -82,7 +83,8 @@ class AuthenticationTest extends TestCase
             'password' => 'wrong-password',
         ]);
 
-        $response->assertStatus(401);
+        // Wrong credentials raise a ValidationException → 422 (same as non-existent email)
+        $response->assertStatus(422);
     }
 
     public function test_login_fails_with_non_existent_email()
@@ -102,8 +104,9 @@ class AuthenticationTest extends TestCase
         $response = $this->actingAs($user, 'sanctum')
             ->getJson('/api/user');
 
+        // UserResource is returned directly, so Laravel wraps it in "data"
         $response->assertStatus(200)
-            ->assertJsonStructure(['id', 'name', 'email']);
+            ->assertJsonStructure(['data' => ['id', 'name', 'email']]);
     }
 
     public function test_unauthenticated_user_cannot_access_profile()

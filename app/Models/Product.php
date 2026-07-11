@@ -35,23 +35,23 @@ class Product extends Model
 
     public function getAvailableSizesAttribute(): array
     {
-        $raw = $this->attributes['sizes'] ?? null;
+        // Use the 'array' cast — the column stores JSON (e.g. ["S","M","L"]).
+        // Splitting the raw attribute by comma mangles it into ['["S"', '"M"', ...].
+        $sizes = $this->sizes;
 
-        if ($raw === null || $raw === '') {
-            return [];
+        if (! is_array($sizes)) {
+            // Legacy fallback: plain comma-separated string ("S,M,L") that
+            // the JSON cast can't decode.
+            $raw = $this->attributes['sizes'] ?? null;
+            if (! is_string($raw) || $raw === '') {
+                return [];
+            }
+            $sizes = array_map('trim', explode(',', $raw));
         }
 
-        if (is_string($raw)) {
-            $parts = array_map('trim', explode(',', $raw));
-        } elseif (is_array($raw)) {
-            $parts = $raw;
-        } else {
-            return [];
-        }
+        $sizes = array_unique(array_filter($sizes, fn ($v) => is_string($v) && $v !== ''));
 
-        $parts = array_unique(array_filter($parts, fn ($v) => $v !== ''));
-
-        return array_values($parts);
+        return array_values($sizes);
     }
 
     public function category()

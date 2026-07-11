@@ -69,8 +69,9 @@ class ProductTest extends TestCase
 
         $response = $this->getJson("/api/products/{$product->id}");
 
+        // ProductResource is returned directly, so Laravel wraps it in "data"
         $response->assertStatus(200)
-            ->assertJsonStructure(['id', 'name', 'price']);
+            ->assertJsonStructure(['data' => ['id', 'name', 'price']]);
     }
 
     public function test_product_not_found()

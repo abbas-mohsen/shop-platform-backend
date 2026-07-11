@@ -19,7 +19,7 @@ class ProductFactory extends Factory
             'price' => $this->faker->randomFloat(2, 10, 500),
             'compare_at_price' => $this->faker->randomFloat(2, 500, 1000),
             'stock' => $this->faker->numberBetween(1, 100),
-            'category_id' => 1,
+            'category_id' => \App\Models\Category::factory(),
             'image' => null,
             'sizes' => json_encode(['XS', 'S', 'M', 'L', 'XL']),
             'sizes_stock' => json_encode(['XS' => 10, 'S' => 15, 'M' => 20, 'L' => 15, 'XL' => 10]),
