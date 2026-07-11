@@ -7,19 +7,16 @@ use App\Http\Resources\OrderResource;
 use App\Mail\OrderStatusUpdated;
 use App\Models\Order;
 use App\Services\CheckoutService;
-use App\Services\PushService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
 class AdminOrderApiController extends Controller
 {
     private CheckoutService $checkoutService;
-    private PushService $pushService;
 
-    public function __construct(CheckoutService $checkoutService, PushService $pushService)
+    public function __construct(CheckoutService $checkoutService)
     {
         $this->checkoutService = $checkoutService;
-        $this->pushService     = $pushService;
     }
 
     public function index()
@@ -41,6 +38,15 @@ class AdminOrderApiController extends Controller
 
         $oldStatus = $order->status;
 
+        // Cancelled is terminal: its stock has already been restored, so
+        // re-activating would sell units that were never re-deducted, and a
+        // later re-cancel would restore stock a second time (inventory drift).
+        if ($oldStatus === 'cancelled' && $data['status'] !== 'cancelled') {
+            return response()->json([
+                'message' => 'Cancelled orders cannot be reactivated. Ask the customer to place a new order.',
+            ], 422);
+        }
+
         $order->status = $data['status'];
         $order->save();
 
@@ -49,7 +55,7 @@ class AdminOrderApiController extends Controller
             $this->checkoutService->restoreStock($order);
         }
 
-        // Send status update email + push notification
+        // Send status update email
         if ($oldStatus !== $order->status) {
             try {
                 $order->loadMissing('user');
@@ -58,16 +64,6 @@ class AdminOrderApiController extends Controller
                 }
             } catch (\Exception $e) {
                 \Log::warning('Order status email failed: ' . $e->getMessage());
-            }
-
-            if ($order->user_id) {
-                $label = ucfirst($order->status);
-                $this->pushService->notifyUser(
-                    $order->user_id,
-                    "Order #{$order->id} — {$label}",
-                    "Your order status has been updated to: {$label}.",
-                    ['orderId' => $order->id, 'screen' => 'OrderDetails']
-                );
             }
         }
 

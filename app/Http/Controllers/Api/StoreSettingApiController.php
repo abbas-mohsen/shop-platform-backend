@@ -16,13 +16,9 @@ class StoreSettingApiController extends Controller
     private const DEFAULTS = [
         // Hero images (JSON array of storage paths)
         'hero_images'            => '[]',
-        // Hero images for mobile (portrait-optimized, separate from desktop)
-        'hero_images_mobile'     => '[]',
 
         // Hero video (single storage path, or empty)
         'hero_video'        => '',
-        // Hero video for mobile (portrait-optimised, separate from desktop)
-        'hero_video_mobile' => '',
 
         // Hero text
         'hero_badge'             => 'New season · 2026',
@@ -90,7 +86,7 @@ class StoreSettingApiController extends Controller
                 $result[$key] = (int) $value;
             } elseif ($key === 'delivery_charge') {
                 $result[$key] = (float) $value;
-            } elseif ($key === 'hero_images' || $key === 'hero_images_mobile') {
+            } elseif ($key === 'hero_images') {
                 $result[$key] = json_decode($value ?: '[]', true) ?? [];
             } else {
                 $result[$key] = $value;
@@ -115,7 +111,7 @@ class StoreSettingApiController extends Controller
         $shippingKeys = ['delivery_charge', 'free_shipping_enabled', 'free_shipping_threshold'];
 
         $allowed = $user->isSuperAdmin()
-            ? array_diff(array_keys(self::DEFAULTS), ['hero_images', 'hero_images_mobile', 'hero_video', 'hero_video_mobile'])
+            ? array_diff(array_keys(self::DEFAULTS), ['hero_images', 'hero_video'])
             : $shippingKeys;
 
         $data = $request->only($allowed);
@@ -224,101 +220,5 @@ class StoreSettingApiController extends Controller
         StoreSetting::setValue('hero_video', '');
 
         return response()->json(['message' => 'Video removed.']);
-    }
-
-    /**
-     * POST /api/admin/settings/hero-image-mobile (super_admin only)
-     * Upload a mobile hero image and append its path to hero_images_mobile.
-     */
-    public function storeHeroImageMobile(Request $request): JsonResponse
-    {
-        $user = $request->user();
-        if (! $user || ! $user->isSuperAdmin()) {
-            return response()->json(['message' => 'Forbidden.'], 403);
-        }
-
-        $request->validate([
-            'image' => ['required', 'file', 'image', 'max:5120'],
-        ]);
-
-        $path = $request->file('image')->store('hero/mobile', 'public');
-
-        $current = json_decode(StoreSetting::getValue('hero_images_mobile', '[]'), true) ?? [];
-        $current[] = $path;
-        StoreSetting::setValue('hero_images_mobile', json_encode($current));
-
-        return response()->json(['path' => $path], 201);
-    }
-
-    /**
-     * DELETE /api/admin/settings/hero-image-mobile (super_admin only)
-     * Remove a mobile hero image path and delete the file.
-     */
-    public function destroyHeroImageMobile(Request $request): JsonResponse
-    {
-        $user = $request->user();
-        if (! $user || ! $user->isSuperAdmin()) {
-            return response()->json(['message' => 'Forbidden.'], 403);
-        }
-
-        $request->validate([
-            'path' => ['required', 'string'],
-        ]);
-
-        $pathToRemove = $request->input('path');
-
-        $current = json_decode(StoreSetting::getValue('hero_images_mobile', '[]'), true) ?? [];
-        $current = array_values(array_filter($current, fn($p) => $p !== $pathToRemove));
-        StoreSetting::setValue('hero_images_mobile', json_encode($current));
-
-        Storage::disk('public')->delete($pathToRemove);
-
-        return response()->json(['message' => 'Image removed.']);
-    }
-
-    /**
-     * POST /api/admin/settings/hero-video-mobile (super_admin only)
-     * Upload a portrait hero video for the mobile app.
-     */
-    public function storeHeroVideoMobile(Request $request): JsonResponse
-    {
-        $user = $request->user();
-        if (! $user || ! $user->isSuperAdmin()) {
-            return response()->json(['message' => 'Forbidden.'], 403);
-        }
-
-        $request->validate([
-            'video' => ['required', 'file', 'mimetypes:video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo', 'max:102400'],
-        ]);
-
-        $old = StoreSetting::getValue('hero_video_mobile', '');
-        if ($old) {
-            Storage::disk('public')->delete($old);
-        }
-
-        $path = $request->file('video')->store('hero/mobile', 'public');
-        StoreSetting::setValue('hero_video_mobile', $path);
-
-        return response()->json(['path' => $path], 201);
-    }
-
-    /**
-     * DELETE /api/admin/settings/hero-video-mobile (super_admin only)
-     * Remove the mobile hero video and delete its file.
-     */
-    public function destroyHeroVideoMobile(Request $request): JsonResponse
-    {
-        $user = $request->user();
-        if (! $user || ! $user->isSuperAdmin()) {
-            return response()->json(['message' => 'Forbidden.'], 403);
-        }
-
-        $path = StoreSetting::getValue('hero_video_mobile', '');
-        if ($path) {
-            Storage::disk('public')->delete($path);
-        }
-        StoreSetting::setValue('hero_video_mobile', '');
-
-        return response()->json(['message' => 'Mobile video removed.']);
     }
 }

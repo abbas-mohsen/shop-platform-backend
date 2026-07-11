@@ -14,8 +14,6 @@ use App\Http\Controllers\Api\AdminDashboardApiController;
 use App\Http\Controllers\Api\ChatApiController;
 use App\Http\Controllers\Api\ReviewApiController;
 use App\Http\Controllers\Api\AdminUserApiController;
-use App\Http\Controllers\Api\DeviceTokenApiController;
-use App\Http\Controllers\Api\AdminNotificationApiController;
 use App\Http\Controllers\Api\StoreSettingApiController;
 use App\Http\Controllers\Api\AnnouncementBannerApiController;
 use App\Http\Controllers\Api\FaqApiController;
@@ -63,9 +61,6 @@ Route::middleware('throttle:5,1')->group(function () {
     Route::post('/reset-password',  [AuthController::class, 'resetPassword']);
 });
 
-// Google OAuth – slightly more lenient rate limit (token already validated by Google)
-Route::middleware('throttle:10,1')->post('/auth/google', [AuthController::class, 'googleAuth']);
-
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return new UserResource($request->user());
@@ -104,10 +99,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/wishlist', [WishlistApiController::class, 'store']);
     Route::delete('/wishlist/{product}', [WishlistApiController::class, 'destroy']);
 
-    // Device token registration (for push notifications)
-    Route::post('/user/device-token',   [DeviceTokenApiController::class, 'store']);
-    Route::delete('/user/device-token', [DeviceTokenApiController::class, 'destroy']);
-
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/orders', [AdminOrderApiController::class, 'index']);
         Route::put('/orders/{order}', [AdminOrderApiController::class, 'updateStatus']);
@@ -126,9 +117,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users',              [AdminUserApiController::class, 'index']);
         Route::put('/users/{user}/role',  [AdminUserApiController::class, 'updateRole']);
 
-        // Push notifications — super_admin only (enforced inside controller)
-        Route::post('/notifications/send', [AdminNotificationApiController::class, 'send']);
-
         // FAQs — super_admin only (enforced inside controller)
         Route::post  ('/faqs',        [FaqApiController::class, 'store']);
         Route::put   ('/faqs/{faq}',  [FaqApiController::class, 'update']);
@@ -141,14 +129,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Store settings — super_admin only (enforced inside controller)
         Route::put   ('/settings',             [StoreSettingApiController::class, 'bulkUpdate']);
-        Route::post  ('/settings/hero-image',         [StoreSettingApiController::class, 'storeHeroImage']);
-        Route::delete('/settings/hero-image',         [StoreSettingApiController::class, 'destroyHeroImage']);
-        Route::post  ('/settings/hero-image-mobile',  [StoreSettingApiController::class, 'storeHeroImageMobile']);
-        Route::delete('/settings/hero-image-mobile',  [StoreSettingApiController::class, 'destroyHeroImageMobile']);
-        Route::post  ('/settings/hero-video',         [StoreSettingApiController::class, 'storeHeroVideo']);
-        Route::delete('/settings/hero-video',         [StoreSettingApiController::class, 'destroyHeroVideo']);
-        Route::post  ('/settings/hero-video-mobile',  [StoreSettingApiController::class, 'storeHeroVideoMobile']);
-        Route::delete('/settings/hero-video-mobile',  [StoreSettingApiController::class, 'destroyHeroVideoMobile']);
+        Route::post  ('/settings/hero-image',  [StoreSettingApiController::class, 'storeHeroImage']);
+        Route::delete('/settings/hero-image',  [StoreSettingApiController::class, 'destroyHeroImage']);
+        Route::post  ('/settings/hero-video',  [StoreSettingApiController::class, 'storeHeroVideo']);
+        Route::delete('/settings/hero-video',  [StoreSettingApiController::class, 'destroyHeroVideo']);
 
         // Announcement banners — super_admin only (enforced inside controller)
         Route::get   ('/banners',           [AnnouncementBannerApiController::class, 'adminIndex']);
