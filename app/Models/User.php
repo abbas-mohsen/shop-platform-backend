@@ -55,6 +55,16 @@ class User extends Authenticatable
         return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_SUPER_ADMIN]);
     }
 
+    /**
+     * The store owner is the seeded super admin account. Its role can
+     * never be changed, so the store always has at least one super admin.
+     */
+    public function isOwner(): bool
+    {
+        return $this->isSuperAdmin()
+            && strcasecmp($this->email, (string) config('app.super_admin_email')) === 0;
+    }
+
     public function isCustomer(): bool
     {
         return $this->role === self::ROLE_CUSTOMER;

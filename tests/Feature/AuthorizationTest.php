@@ -40,79 +40,78 @@ class AuthorizationTest extends TestCase
     }
 
     /**
-     * Customers cannot manage users
+     * Customers and regular admins cannot manage users
      */
-    public function test_customer_cannot_manage_users()
+    public function test_only_super_admin_can_manage_users()
     {
         $customer = User::factory()->create();
-
-        $response = $this->actingAs($customer, 'sanctum')
-            ->getJson('/api/admin/users');
-
-        $response->assertStatus(403);
-    }
-
-    /**
-     * Admins can list users and promote a customer to admin
-     */
-    public function test_admin_can_promote_customer_to_admin()
-    {
         $admin    = User::factory()->admin()->create();
-        $customer = User::factory()->create();
+
+        $this->actingAs($customer, 'sanctum')
+            ->getJson('/api/admin/users')
+            ->assertStatus(403);
 
         $this->actingAs($admin, 'sanctum')
             ->getJson('/api/admin/users')
+            ->assertStatus(403);
+    }
+
+    /**
+     * Super admins can assign any role — promote customers, grant
+     * super_admin, and demote another (non-owner) super admin
+     */
+    public function test_super_admin_can_assign_roles()
+    {
+        $superAdmin = User::factory()->superAdmin()->create();
+        $customer   = User::factory()->create();
+
+        $this->actingAs($superAdmin, 'sanctum')
+            ->getJson('/api/admin/users')
             ->assertStatus(200);
 
-        $response = $this->actingAs($admin, 'sanctum')
-            ->putJson("/api/admin/users/{$customer->id}/role", ['role' => 'admin']);
+        // customer -> admin
+        $this->actingAs($superAdmin, 'sanctum')
+            ->putJson("/api/admin/users/{$customer->id}/role", ['role' => 'admin'])
+            ->assertStatus(200);
+        $this->assertEquals('admin', $customer->fresh()->role);
 
-        $response->assertStatus(200);
+        // admin -> super_admin
+        $this->actingAs($superAdmin, 'sanctum')
+            ->putJson("/api/admin/users/{$customer->id}/role", ['role' => 'super_admin'])
+            ->assertStatus(200);
+        $this->assertEquals('super_admin', $customer->fresh()->role);
+
+        // ...and back down: super_admin -> admin (possible because
+        // the target is not the store owner)
+        $this->actingAs($superAdmin, 'sanctum')
+            ->putJson("/api/admin/users/{$customer->id}/role", ['role' => 'admin'])
+            ->assertStatus(200);
         $this->assertEquals('admin', $customer->fresh()->role);
     }
 
     /**
-     * The super_admin role can never be assigned — not even by the super admin
+     * The store owner (seeded super admin) can never be demoted, and
+     * nobody can change their own role — so there is always at least
+     * one super admin
      */
-    public function test_super_admin_role_cannot_be_assigned()
+    public function test_store_owner_role_is_protected()
     {
+        $owner = User::factory()->superAdmin()->create([
+            'email' => config('app.super_admin_email'),
+        ]);
         $superAdmin = User::factory()->superAdmin()->create();
-        $admin      = User::factory()->admin()->create();
-        $customer   = User::factory()->create();
 
-        // Admin trying to grant super_admin
-        $this->actingAs($admin, 'sanctum')
-            ->putJson("/api/admin/users/{$customer->id}/role", ['role' => 'super_admin'])
-            ->assertStatus(422);
-
-        // Even the super admin cannot grant super_admin
+        // Another super admin cannot demote the owner
         $this->actingAs($superAdmin, 'sanctum')
-            ->putJson("/api/admin/users/{$customer->id}/role", ['role' => 'super_admin'])
+            ->putJson("/api/admin/users/{$owner->id}/role", ['role' => 'admin'])
             ->assertStatus(422);
 
-        $this->assertEquals('customer', $customer->fresh()->role);
-    }
-
-    /**
-     * The super admin's own role is untouchable, and nobody can change their own role
-     */
-    public function test_super_admin_role_is_protected()
-    {
-        $superAdmin = User::factory()->superAdmin()->create();
-        $admin      = User::factory()->admin()->create();
-
-        // Admin cannot demote the super admin
-        $this->actingAs($admin, 'sanctum')
-            ->putJson("/api/admin/users/{$superAdmin->id}/role", ['role' => 'customer'])
+        // Nobody can change their own role — not even the owner
+        $this->actingAs($owner, 'sanctum')
+            ->putJson("/api/admin/users/{$owner->id}/role", ['role' => 'admin'])
             ->assertStatus(422);
 
-        // Admin cannot change their own role
-        $this->actingAs($admin, 'sanctum')
-            ->putJson("/api/admin/users/{$admin->id}/role", ['role' => 'customer'])
-            ->assertStatus(422);
-
-        $this->assertEquals('super_admin', $superAdmin->fresh()->role);
-        $this->assertEquals('admin', $admin->fresh()->role);
+        $this->assertEquals('super_admin', $owner->fresh()->role);
     }
 
     /**

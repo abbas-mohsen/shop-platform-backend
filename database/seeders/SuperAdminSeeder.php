@@ -14,7 +14,9 @@ class SuperAdminSeeder extends Seeder
      */
     public function run(): void
     {
-        $email = env('SUPER_ADMIN_EMAIL', 'admin@xtremefit.com');
+        // Same source as User::isOwner() — this account becomes the
+        // permanent store owner whose role can never be changed.
+        $email = config('app.super_admin_email');
 
         if (User::where('email', $email)->exists()) {
             $this->command->info("Super admin already exists: {$email}");

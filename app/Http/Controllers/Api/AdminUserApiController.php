@@ -12,11 +12,11 @@ class AdminUserApiController extends Controller
 {
     /**
      * GET /api/admin/users
-     * List all users (paginated). Admins and super admins can access.
+     * List all users (paginated). Only super admins can access.
      */
     public function index(Request $request): JsonResponse
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeSuperAdmin($request);
 
         $perPage = min((int) $request->query('per_page', 20), 100);
 
@@ -27,19 +27,20 @@ class AdminUserApiController extends Controller
 
     /**
      * PUT /api/admin/users/{user}/role
-     * Change a user's role between customer and admin.
+     * Change a user's role. Only super admins can do this, and they may
+     * assign any role — including promoting someone else to super_admin
+     * or demoting another super admin back to admin.
      *
-     * The super_admin role is deliberately not manageable here:
-     * it can never be granted (not even by the super admin), the
-     * super admin's own role can never be changed, and nobody can
-     * change their own role. There is exactly one super admin,
-     * created by the seeder.
+     * Two accounts are untouchable:
+     *  - the store owner (the seeded super admin) can never be changed,
+     *    which guarantees there is always at least one super admin;
+     *  - your own account — nobody can change their own role.
      *
-     * Body: { "role": "customer" | "admin" }
+     * Body: { "role": "customer" | "admin" | "super_admin" }
      */
     public function updateRole(Request $request, User $user): JsonResponse
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeSuperAdmin($request);
 
         $currentUser = $request->user();
 
@@ -50,23 +51,20 @@ class AdminUserApiController extends Controller
             ], 422);
         }
 
-        // The super admin's role is untouchable
-        if ($user->isSuperAdmin()) {
+        // The store owner is the permanent super admin
+        if ($user->isOwner()) {
             return response()->json([
-                'message' => "The super admin's role cannot be changed.",
+                'message' => "The store owner's role cannot be changed.",
             ], 422);
         }
 
-        // super_admin is intentionally excluded from the allowed values
         $data = $request->validate([
-            'role' => ['required', 'in:' . User::ROLE_CUSTOMER . ',' . User::ROLE_ADMIN],
-        ], [
-            'role.in' => 'Role must be customer or admin. The super admin role cannot be assigned.',
+            'role' => ['required', 'in:' . implode(',', User::ROLES)],
         ]);
 
         $user->update([
             'role'     => $data['role'],
-            'is_admin' => $data['role'] === User::ROLE_ADMIN,
+            'is_admin' => in_array($data['role'], [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN]),
         ]);
 
         return response()->json([
@@ -76,12 +74,12 @@ class AdminUserApiController extends Controller
     }
 
     /**
-     * Ensure only admins (or the super admin) can access these endpoints.
+     * Ensure only super admins can access these endpoints.
      */
-    private function authorizeAdmin(Request $request): void
+    private function authorizeSuperAdmin(Request $request): void
     {
-        if (!$request->user() || !$request->user()->isAdmin()) {
-            abort(403, 'Only admins can manage users.');
+        if (!$request->user() || !$request->user()->isSuperAdmin()) {
+            abort(403, 'Only super admins can manage users.');
         }
     }
 }

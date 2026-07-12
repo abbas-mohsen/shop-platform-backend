@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Store Owner
+    |--------------------------------------------------------------------------
+    |
+    | The seeded super admin account. This account is the permanent owner:
+    | its role can never be changed through the API, guaranteeing the store
+    | always has at least one super admin.
+    |
+    */
+
+    'super_admin_email' => env('SUPER_ADMIN_EMAIL', 'admin@xtremefit.com'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |
