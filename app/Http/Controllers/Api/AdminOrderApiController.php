@@ -19,11 +19,37 @@ class AdminOrderApiController extends Controller
         $this->checkoutService = $checkoutService;
     }
 
-    public function index()
+    /**
+     * GET /api/admin/orders
+     *
+     * Query params:
+     *  - status: pending | approved | rejected | delivered | cancelled
+     *  - search: order id, or customer name / email / phone (partial)
+     */
+    public function index(Request $request)
     {
-        $orders = Order::with(['user', 'items.product'])
-            ->latest()
-            ->paginate(25);
+        $query = Order::with(['user', 'items.product'])->latest();
+
+        $status = $request->query('status');
+        if ($status && in_array($status, ['pending', 'approved', 'rejected', 'delivered', 'cancelled'], true)) {
+            $query->where('status', $status);
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                if (ctype_digit($search)) {
+                    $q->orWhere('id', (int) $search);
+                }
+                $q->orWhereHas('user', function ($u) use ($search) {
+                    $u->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('phone', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        $orders = $query->paginate(25)->appends($request->query());
 
         return OrderResource::collection($orders);
     }

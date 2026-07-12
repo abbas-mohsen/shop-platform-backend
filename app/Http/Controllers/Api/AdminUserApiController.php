@@ -13,6 +13,10 @@ class AdminUserApiController extends Controller
     /**
      * GET /api/admin/users
      * List all users (paginated). Only super admins can access.
+     *
+     * Query params:
+     *  - search: matches name, email or phone (partial, case-insensitive)
+     *  - role:   customer | admin | super_admin
      */
     public function index(Request $request): JsonResponse
     {
@@ -20,7 +24,23 @@ class AdminUserApiController extends Controller
 
         $perPage = min((int) $request->query('per_page', 20), 100);
 
-        $users = User::orderBy('created_at', 'desc')->paginate($perPage);
+        $query = User::orderBy('created_at', 'desc');
+
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        $role = $request->query('role');
+        if ($role && in_array($role, User::ROLES, true)) {
+            $query->where('role', $role);
+        }
+
+        $users = $query->paginate($perPage)->appends($request->query());
 
         return response()->json(UserResource::collection($users)->response()->getData(true));
     }
