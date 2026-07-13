@@ -84,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/my-orders', [OrderApiController::class, 'myOrders']);
     Route::get('/my-orders/{order}', [OrderApiController::class, 'showMyOrder']);
+    Route::get('/orders/{order}/invoice', [OrderApiController::class, 'invoice']);
     Route::put('/orders/{order}/cancel', [OrderApiController::class, 'cancel']);
 
     Route::post('/products/{product}/reviews', [ReviewApiController::class, 'store']);

@@ -87,6 +87,35 @@ class OrderApiController extends Controller
     }
 
     /**
+     * GET /api/orders/{order}/invoice
+     * Download the order as a PDF invoice. The 'view' policy covers both
+     * the order's owner and admins.
+     */
+    public function invoice(Request $request, Order $order)
+    {
+        $this->authorize('view', $order);
+
+        $order->loadMissing(['items.product', 'user']);
+
+        $subtotal = $order->items->sum(
+            fn ($item) => (float) $item->unit_price * (int) $item->quantity
+        );
+        // total = subtotal - discount + delivery, so anything left over is delivery
+        $delivery = max(0, round((float) $order->total - ($subtotal - (float) $order->discount_amount), 2));
+
+        $pdf = \PDF::loadView('invoices.order', [
+            'order'          => $order,
+            'subtotal'       => $subtotal,
+            'delivery'       => $delivery,
+            'contactEmail'   => \App\Models\StoreSetting::getValue('contact_email', ''),
+            'contactPhone'   => \App\Models\StoreSetting::getValue('contact_phone', ''),
+            'contactAddress' => \App\Models\StoreSetting::getValue('contact_address', ''),
+        ]);
+
+        return $pdf->download("xtremefit-invoice-{$order->id}.pdf");
+    }
+
+    /**
      * PUT /api/orders/{order}/cancel
      * Uses Policy for authorization.
      */

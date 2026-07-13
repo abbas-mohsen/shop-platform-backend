@@ -22,21 +22,28 @@ class AdminDashboardApiController extends Controller
         return response()->json($data);
     }
 
+    /** A size (or a product's total) at or below this counts as low stock. */
+    public const LOW_STOCK_THRESHOLD = 5;
+
+    /** Statuses that count as realized sales. */
+    private const REVENUE_STATUSES = ['approved', 'delivered'];
+
     private function buildOverviewData(): array
     {
         $totalOrders  = Order::count();
-        $totalRevenue = Order::whereIn('status', ['paid', 'shipped'])->sum('total');
+        $totalRevenue = Order::whereIn('status', self::REVENUE_STATUSES)->sum('total');
 
         $statusCounts = Order::select('status', DB::raw('COUNT(*) as cnt'))
             ->groupBy('status')
             ->pluck('cnt', 'status');
 
-        $last7Days = Order::select(
+        // Daily orders + realized revenue for the last 30 days (charting)
+        $last30Days = Order::select(
                 DB::raw('DATE(created_at) as date'),
                 DB::raw('COUNT(*) as orders_count'),
-                DB::raw('SUM(total) as revenue')
+                DB::raw("SUM(CASE WHEN status IN ('approved','delivered') THEN total ELSE 0 END) as revenue")
             )
-            ->where('created_at', '>=', now()->subDays(6)->startOfDay())
+            ->where('created_at', '>=', now()->subDays(29)->startOfDay())
             ->groupBy(DB::raw('DATE(created_at)'))
             ->orderBy('date')
             ->get();
@@ -64,30 +71,52 @@ class AdminDashboardApiController extends Controller
                 DB::raw('SUM(orders.total) as total_spent')
             )
             ->whereNotNull('orders.user_id')
-            ->whereIn('orders.status', ['paid', 'shipped'])
+            ->whereIn('orders.status', self::REVENUE_STATUSES)
             ->groupBy('orders.user_id', 'users.name', 'users.phone')
             ->orderByDesc('total_spent')
+            ->take(5)
             ->get();
 
-        $lowStockProducts = Product::where('stock', '<=', 5)
-            ->select('id', 'name', 'stock', 'image')
-            ->orderBy('stock')
+        // Low stock is size-aware: a product with healthy total stock can
+        // still be about to sell out in a specific size.
+        $lowStockProducts = Product::select('id', 'name', 'stock', 'image', 'sizes_stock')
+            ->get()
+            ->map(function ($p) {
+                $lowSizes = collect($p->sizes_stock ?: [])
+                    ->filter(fn ($qty) => (int) $qty <= self::LOW_STOCK_THRESHOLD)
+                    ->map(fn ($qty, $size) => ['size' => $size, 'stock' => (int) $qty])
+                    ->values();
+
+                return [
+                    'id'        => $p->id,
+                    'name'      => $p->name,
+                    'image'     => $p->image,
+                    'stock'     => $p->stock,
+                    'low_sizes' => $lowSizes,
+                ];
+            })
+            ->filter(fn ($p) => $p['stock'] <= self::LOW_STOCK_THRESHOLD || $p['low_sizes']->isNotEmpty())
+            ->sortBy('stock')
             ->take(10)
-            ->get();
+            ->values();
 
         $outOfStockCount = Product::where('stock', 0)->count();
 
         return [
             'total_orders'       => $totalOrders,
-            'total_revenue'      => $totalRevenue,
+            'total_revenue'      => round((float) $totalRevenue, 2),
             'out_of_stock_count' => $outOfStockCount,
+            'low_stock_count'    => $lowStockProducts->count(),
             'status_counts' => [
                 'pending'   => $statusCounts['pending']   ?? 0,
-                'paid'      => $statusCounts['paid']      ?? 0,
-                'shipped'   => $statusCounts['shipped']   ?? 0,
+                'approved'  => $statusCounts['approved']  ?? 0,
+                'delivered' => $statusCounts['delivered'] ?? 0,
+                'rejected'  => $statusCounts['rejected']  ?? 0,
                 'cancelled' => $statusCounts['cancelled'] ?? 0,
             ],
-            'last_7_days'        => $last7Days,
+            'last_30_days'       => $last30Days,
+            // kept for backward compatibility with the existing dashboard UI
+            'last_7_days'        => $last30Days->slice(-7)->values(),
             'top_products'       => $topProducts,
             'top_customers'      => $topCustomers,
             'low_stock_products' => $lowStockProducts,
