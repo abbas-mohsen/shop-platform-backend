@@ -134,6 +134,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/settings/hero-image',  [StoreSettingApiController::class, 'destroyHeroImage']);
         Route::post  ('/settings/hero-video',  [StoreSettingApiController::class, 'storeHeroVideo']);
         Route::delete('/settings/hero-video',  [StoreSettingApiController::class, 'destroyHeroVideo']);
+        Route::post  ('/settings/home-category-image', [StoreSettingApiController::class, 'storeHomeCategoryImage']);
 
         // Announcement banners — super_admin only (enforced inside controller)
         Route::get   ('/banners',           [AnnouncementBannerApiController::class, 'adminIndex']);

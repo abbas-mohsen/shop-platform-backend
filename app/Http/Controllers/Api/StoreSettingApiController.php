@@ -20,6 +20,10 @@ class StoreSettingApiController extends Controller
         // Hero video (single storage path, or empty)
         'hero_video'        => '',
 
+        // Homepage "Shop by category" tiles (JSON array of {label, link, image}).
+        // image = storage path; empty means the frontend uses its bundled default.
+        'home_categories' => '[{"label":"Men","link":"/products?group=men","image":""},{"label":"Women","link":"/products?group=women","image":""},{"label":"Footwear","link":"/products?group=shoes","image":""}]',
+
         // Hero text
         'hero_badge'             => 'New season · 2026',
         'hero_eyebrow'           => 'XTREMEFIT · SS 2026',
@@ -86,7 +90,7 @@ class StoreSettingApiController extends Controller
                 $result[$key] = (int) $value;
             } elseif ($key === 'delivery_charge') {
                 $result[$key] = (float) $value;
-            } elseif ($key === 'hero_images') {
+            } elseif ($key === 'hero_images' || $key === 'home_categories') {
                 $result[$key] = json_decode($value ?: '[]', true) ?? [];
             } else {
                 $result[$key] = $value;
@@ -220,5 +224,45 @@ class StoreSettingApiController extends Controller
         StoreSetting::setValue('hero_video', '');
 
         return response()->json(['message' => 'Video removed.']);
+    }
+
+    /**
+     * POST /api/admin/settings/home-category-image (super_admin only)
+     * Upload the image for one of the homepage category tiles (index 0-2).
+     */
+    public function storeHomeCategoryImage(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $request->validate([
+            'index' => ['required', 'integer', 'min:0', 'max:2'],
+            'image' => ['required', 'file', 'image', 'max:5120'],
+        ]);
+
+        $index = (int) $request->input('index');
+        $path  = $request->file('image')->store('categories', config('filesystems.media_disk'));
+
+        $cats = json_decode(StoreSetting::getValue('home_categories', '[]'), true);
+        if (! is_array($cats)) {
+            $cats = [];
+        }
+        // Make sure the slot exists.
+        while (count($cats) <= $index) {
+            $cats[] = ['label' => '', 'link' => '', 'image' => ''];
+        }
+
+        // Best-effort removal of the previous uploaded image.
+        $old = $cats[$index]['image'] ?? '';
+        if ($old) {
+            Storage::disk(config('filesystems.media_disk'))->delete($old);
+        }
+
+        $cats[$index]['image'] = $path;
+        StoreSetting::setValue('home_categories', json_encode($cats));
+
+        return response()->json(['path' => $path, 'home_categories' => $cats], 201);
     }
 }
