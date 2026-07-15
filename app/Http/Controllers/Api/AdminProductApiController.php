@@ -23,6 +23,7 @@ class AdminProductApiController extends Controller
     {
         $products = Product::with('category')
             ->withCount('reviews')
+            ->withCount('orderItems')
             ->withAvg('reviews', 'rating')
             ->orderBy('created_at', 'desc')
             ->get();

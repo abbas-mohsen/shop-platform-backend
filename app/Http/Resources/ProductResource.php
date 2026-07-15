@@ -24,6 +24,7 @@ class ProductResource extends JsonResource
             'available_sizes'    => $this->available_sizes,
             'category'           => new CategoryResource($this->whenLoaded('category')),
             'reviews_count'      => $this->when(isset($this->reviews_count), $this->reviews_count),
+            'order_items_count'  => $this->when(isset($this->order_items_count), $this->order_items_count),
             'reviews_avg_rating' => $this->when(
                 isset($this->reviews_avg_rating),
                 fn () => $this->reviews_avg_rating ? round((float) $this->reviews_avg_rating, 1) : null
