@@ -96,6 +96,60 @@ class AdminOrderApiController extends Controller
         return new OrderResource($order);
     }
 
+    /**
+     * Apply one status to several orders in a single request. Looping here
+     * avoids the dropped/raced requests that firing many parallel PUTs can
+     * cause. Orders that can't transition (unauthorized, terminal cancel, or
+     * already at the target) are skipped, mirroring updateStatus().
+     */
+    public function bulkUpdateStatus(Request $request)
+    {
+        $data = $request->validate([
+            'ids'    => ['required', 'array', 'min:1'],
+            'ids.*'  => ['integer', 'exists:orders,id'],
+            'status' => ['required', 'in:pending,approved,rejected,delivered,cancelled'],
+        ]);
+
+        $orders  = Order::whereIn('id', $data['ids'])->get();
+        $updated = 0;
+
+        foreach ($orders as $order) {
+            if (! $request->user()->can('updateStatus', $order)) {
+                continue;
+            }
+
+            $oldStatus = $order->status;
+            // Cancelled is terminal, and skip no-op changes.
+            if (($oldStatus === 'cancelled' && $data['status'] !== 'cancelled')
+                || $oldStatus === $data['status']) {
+                continue;
+            }
+
+            $order->status = $data['status'];
+            $order->save();
+
+            if ($data['status'] === 'cancelled' && $oldStatus !== 'cancelled') {
+                $this->checkoutService->restoreStock($order);
+            }
+
+            try {
+                $order->loadMissing('user');
+                if ($order->user && $order->user->email) {
+                    Mail::to($order->user->email)->queue(new OrderStatusUpdated($order, $oldStatus));
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Order status email failed: ' . $e->getMessage());
+            }
+
+            $updated++;
+        }
+
+        return response()->json([
+            'message'       => "{$updated} order(s) updated.",
+            'updated_count' => $updated,
+        ]);
+    }
+
     public function cancel(Order $order)
     {
         $this->authorize('cancel', $order);

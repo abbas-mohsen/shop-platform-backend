@@ -102,6 +102,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/orders', [AdminOrderApiController::class, 'index']);
+        Route::post('/orders/bulk-status', [AdminOrderApiController::class, 'bulkUpdateStatus']);
         Route::put('/orders/{order}', [AdminOrderApiController::class, 'updateStatus']);
         Route::put('/orders/{order}/cancel', [AdminOrderApiController::class, 'cancel']);
         Route::get   ('/products',              [AdminProductApiController::class, 'index']);
@@ -109,6 +110,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post  ('/products',              [AdminProductApiController::class, 'store']);
         Route::post  ('/products/bulk-sale',    [AdminProductApiController::class, 'bulkSale']);
         Route::delete('/products/bulk-sale',    [AdminProductApiController::class, 'clearSale']);
+        Route::post  ('/products/bulk-delete',  [AdminProductApiController::class, 'bulkDelete']);
         Route::post  ('/products/{product}',    [AdminProductApiController::class, 'update']); // using POST for update
         Route::delete('/products/{product}',    [AdminProductApiController::class, 'destroy']);
 
