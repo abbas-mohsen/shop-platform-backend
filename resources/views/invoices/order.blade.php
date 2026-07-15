@@ -105,7 +105,7 @@
                     <td>
                         @if($item->color)
                             <span style="display: inline-block; width: 10px; height: 10px; border: 1px solid #bbb; background: {{ $item->color }};"></span>
-                            {{ $item->color }}
+                            {{ $item->color_name }}
                         @else
                             —
                         @endif

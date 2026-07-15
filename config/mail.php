@@ -106,6 +106,14 @@ return [
     ],
 
     /*
+    | Optional single inbox for admin "new order" notifications. When set, the
+    | notification goes only here (a real, monitored mailbox) instead of every
+    | admin account — this avoids bounces to placeholder addresses that harm the
+    | sender's reputation and push mail to spam.
+    */
+    'admin_address' => env('MAIL_ADMIN_ADDRESS'),
+
+    /*
     |--------------------------------------------------------------------------
     | Markdown Mail Settings
     |--------------------------------------------------------------------------

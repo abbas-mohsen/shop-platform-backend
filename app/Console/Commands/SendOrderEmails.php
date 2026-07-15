@@ -37,10 +37,26 @@ class SendOrderEmails extends Command
 
         // ── Admin notification ────────────────────────────────────
         try {
-            $adminEmails = User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN])
-                ->whereNotNull('email')
-                ->pluck('email')
-                ->all();
+            // Prefer a single configured inbox (a real, monitored mailbox).
+            // Falling back to every admin row can include placeholder addresses
+            // whose bounces hurt the sender's reputation and cause spam-foldering.
+            $configured = config('mail.admin_address');
+            if ($configured) {
+                $adminEmails = [$configured];
+            } else {
+                $adminEmails = User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN])
+                    ->whereNotNull('email')
+                    ->pluck('email')
+                    ->all();
+            }
+
+            // De-duplicate and never send the notification to the store's own
+            // sending address (a self-send is a common spam signal).
+            $fromAddress = config('mail.from.address');
+            $adminEmails = array_values(array_unique(array_filter(
+                $adminEmails,
+                fn ($email) => $email && strcasecmp($email, $fromAddress) !== 0
+            )));
 
             foreach ($adminEmails as $email) {
                 Mail::to($email)->send(new NewOrderAdmin($order));
