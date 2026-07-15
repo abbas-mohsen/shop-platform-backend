@@ -24,6 +24,9 @@ class StoreSettingApiController extends Controller
         // image = storage path; empty means the frontend uses its bundled default.
         'home_categories' => '[{"label":"Men","link":"/products?group=men","image":""},{"label":"Women","link":"/products?group=women","image":""},{"label":"Footwear","link":"/products?group=shoes","image":""}]',
 
+        // Thin strip of text above the navbar (empty hides it)
+        'top_bar_text' => 'XTREMEFIT · NEW SEASON LIVE · BEIRUT',
+
         // Hero text
         'hero_badge'             => 'New season · 2026',
         'hero_eyebrow'           => 'XTREMEFIT · SS 2026',
