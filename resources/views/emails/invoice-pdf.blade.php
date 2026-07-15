@@ -185,7 +185,7 @@
                 <td>
                     @if($item->size)<span style="font-weight:600;">{{ $item->size }}</span>@else<span style="color:#bbb;">—</span>@endif
                     @if($item->color)
-                        &nbsp;<span class="color-dot" style="background:{{ $item->color }};"></span><span style="font-size:10px;color:#666;">{{ $item->color }}</span>
+                        &nbsp;<span class="color-dot" style="background:{{ $item->color }};"></span><span style="font-size:10px;color:#666;">{{ $item->color_name }}</span>
                     @endif
                 </td>
                 <td class="qty">{{ $item->quantity }}</td>

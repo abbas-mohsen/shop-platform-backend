@@ -19,6 +19,15 @@ class OrderItem extends Model
         'line_total',
     ];
 
+    /**
+     * Human-readable colour name (never the raw hex) for display in emails,
+     * invoices and the UI.
+     */
+    public function getColorNameAttribute(): ?string
+    {
+        return \App\Support\Color::name($this->color);
+    }
+
     public function order()
     {
         return $this->belongsTo(Order::class);

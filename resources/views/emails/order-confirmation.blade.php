@@ -57,7 +57,7 @@
                             {{ $item->size ?? '—' }}
                             @if($item->color)
                                 <br>
-                                <span style="display:inline-block;width:11px;height:11px;background:{{ $item->color }};border:1px solid #ccc;vertical-align:middle;margin-right:4px;"></span><span style="font-size:11px;color:#555;">{{ $item->color }}</span>
+                                <span style="display:inline-block;width:11px;height:11px;background:{{ $item->color }};border:1px solid #ccc;vertical-align:middle;margin-right:4px;"></span><span style="font-size:11px;color:#555;">{{ $item->color_name }}</span>
                             @endif
                         </td>
                         <td>{{ $item->quantity }}</td>
