@@ -265,4 +265,38 @@ class StoreSettingApiController extends Controller
 
         return response()->json(['path' => $path, 'home_categories' => $cats], 201);
     }
+
+    /**
+     * DELETE /api/admin/settings/home-category-image (super_admin only)
+     * Clear a category tile's image (reverts to the bundled default) and
+     * delete the stored file.
+     */
+    public function destroyHomeCategoryImage(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $request->validate([
+            'index' => ['required', 'integer', 'min:0', 'max:2'],
+        ]);
+
+        $index = (int) $request->input('index');
+        $cats  = json_decode(StoreSetting::getValue('home_categories', '[]'), true);
+        if (! is_array($cats)) {
+            $cats = [];
+        }
+
+        if (isset($cats[$index])) {
+            $old = $cats[$index]['image'] ?? '';
+            if ($old) {
+                Storage::disk(config('filesystems.media_disk'))->delete($old);
+            }
+            $cats[$index]['image'] = '';
+            StoreSetting::setValue('home_categories', json_encode($cats));
+        }
+
+        return response()->json(['home_categories' => $cats]);
+    }
 }
