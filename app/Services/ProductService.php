@@ -20,7 +20,7 @@ class ProductService
     public function create(array $data, $imageFile = null): Product
     {
         if ($imageFile) {
-            $data['image'] = $imageFile->store('products', 'public');
+            $data['image'] = $imageFile->store('products', config('filesystems.media_disk'));
         }
 
         $data['sizes']         = $data['sizes'] ?? [];
@@ -56,9 +56,9 @@ class ProductService
     {
         if ($imageFile) {
             if ($product->image) {
-                Storage::disk('public')->delete($product->image);
+                Storage::disk(config('filesystems.media_disk'))->delete($product->image);
             }
-            $data['image'] = $imageFile->store('products', 'public');
+            $data['image'] = $imageFile->store('products', config('filesystems.media_disk'));
         }
 
         $data['sizes']         = $data['sizes'] ?? [];
@@ -117,7 +117,7 @@ class ProductService
         }
 
         if ($product->image) {
-            Storage::disk('public')->delete($product->image);
+            Storage::disk(config('filesystems.media_disk'))->delete($product->image);
         }
 
         $product->delete();

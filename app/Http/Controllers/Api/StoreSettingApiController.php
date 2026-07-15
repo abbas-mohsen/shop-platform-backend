@@ -138,7 +138,7 @@ class StoreSettingApiController extends Controller
             'image' => ['required', 'file', 'image', 'max:5120'],
         ]);
 
-        $path = $request->file('image')->store('hero', 'public');
+        $path = $request->file('image')->store('hero', config('filesystems.media_disk'));
 
         // Append to existing list
         $current = json_decode(StoreSetting::getValue('hero_images', '[]'), true) ?? [];
@@ -170,7 +170,7 @@ class StoreSettingApiController extends Controller
         StoreSetting::setValue('hero_images', json_encode($current));
 
         // Best-effort file deletion
-        Storage::disk('public')->delete($pathToRemove);
+        Storage::disk(config('filesystems.media_disk'))->delete($pathToRemove);
 
         return response()->json(['message' => 'Image removed.']);
     }
@@ -193,10 +193,10 @@ class StoreSettingApiController extends Controller
         // Delete old video file if one exists
         $old = StoreSetting::getValue('hero_video', '');
         if ($old) {
-            Storage::disk('public')->delete($old);
+            Storage::disk(config('filesystems.media_disk'))->delete($old);
         }
 
-        $path = $request->file('video')->store('hero', 'public');
+        $path = $request->file('video')->store('hero', config('filesystems.media_disk'));
         StoreSetting::setValue('hero_video', $path);
 
         return response()->json(['path' => $path], 201);
@@ -215,7 +215,7 @@ class StoreSettingApiController extends Controller
 
         $path = StoreSetting::getValue('hero_video', '');
         if ($path) {
-            Storage::disk('public')->delete($path);
+            Storage::disk(config('filesystems.media_disk'))->delete($path);
         }
         StoreSetting::setValue('hero_video', '');
 

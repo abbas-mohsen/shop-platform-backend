@@ -50,6 +50,22 @@ class CartApiController extends Controller
         $size  = $data['size']  ?? null;
         $color = $data['color'] ?? null;
 
+        // Never let an out-of-stock (or over-quantity) line into the cart.
+        // quantity here is the absolute target quantity for the line.
+        $available = $product->availableStockFor($size, $color);
+        if (! is_null($available)) {
+            if ($available <= 0) {
+                return response()->json([
+                    'message' => 'This item is out of stock.',
+                ], 422);
+            }
+            if ($data['quantity'] > $available) {
+                return response()->json([
+                    'message' => "Only {$available} left in stock.",
+                ], 422);
+            }
+        }
+
         $cart = Cart::firstOrCreate(
             ['user_id' => $user->id],
             []

@@ -19,7 +19,16 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:8080', 'http://127.0.0.1:8080'],
+    // Origins allowed to call the API. Defaults cover local development; in
+    // production set CORS_ALLOWED_ORIGINS to a comma-separated list of the
+    // deployed frontend URL(s), e.g. "https://xtremefit.vercel.app".
+    'allowed_origins' => array_values(array_filter(array_map('trim', explode(
+        ',',
+        env(
+            'CORS_ALLOWED_ORIGINS',
+            'http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080,http://127.0.0.1:8080'
+        )
+    )))),
 
     'allowed_origins_patterns' => [],
 

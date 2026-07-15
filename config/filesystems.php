@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Media Disk
+    |--------------------------------------------------------------------------
+    |
+    | Disk used for user-uploaded media (product images, hero image/video).
+    | Defaults to the local "public" disk. In production, set MEDIA_DISK=s3
+    | to store uploads on S3-compatible object storage such as Cloudflare R2.
+    |
+    */
+
+    'media_disk' => env('MEDIA_DISK', 'public'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

@@ -55,7 +55,7 @@ class ProductController extends Controller
         $product->sizes = $data['sizes'] ?? null;
 
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('products', 'public');
+            $path = $request->file('image')->store('products', config('filesystems.media_disk'));
             $product->image = $path;
         }
 
@@ -104,10 +104,10 @@ class ProductController extends Controller
 
         if ($request->hasFile('image')) {
             if ($product->image) {
-                Storage::disk('public')->delete($product->image);
+                Storage::disk(config('filesystems.media_disk'))->delete($product->image);
             }
 
-            $path = $request->file('image')->store('products', 'public');
+            $path = $request->file('image')->store('products', config('filesystems.media_disk'));
             $product->image = $path;
         }
 
@@ -121,7 +121,7 @@ class ProductController extends Controller
     public function destroy(Product $product)
     {
         if ($product->image) {
-            Storage::disk('public')->delete($product->image);
+            Storage::disk(config('filesystems.media_disk'))->delete($product->image);
         }
 
         $product->delete();

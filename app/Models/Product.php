@@ -54,6 +54,28 @@ class Product extends Model
         return array_values($sizes);
     }
 
+    /**
+     * Available stock for a specific size/color, using the same precedence as
+     * checkout: colour-within-size stock, then per-size stock, then the
+     * product-level stock. Returns null when no stock constraint is tracked.
+     */
+    public function availableStockFor(?string $size = null, ?string $color = null): ?int
+    {
+        $colorsStock = $this->colors_stock ?? [];
+        if ($size && $color && is_array($colorsStock)
+            && isset($colorsStock[$size]) && is_array($colorsStock[$size])
+            && array_key_exists($color, $colorsStock[$size])) {
+            return (int) $colorsStock[$size][$color];
+        }
+
+        $sizesStock = $this->sizes_stock ?? [];
+        if ($size && is_array($sizesStock) && array_key_exists($size, $sizesStock)) {
+            return (int) $sizesStock[$size];
+        }
+
+        return is_null($this->stock) ? null : (int) $this->stock;
+    }
+
     public function category()
     {
         return $this->belongsTo(Category::class);
