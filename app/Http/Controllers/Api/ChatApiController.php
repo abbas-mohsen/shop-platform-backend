@@ -49,7 +49,11 @@ class ChatApiController extends Controller
             ->where('role', 'user')
             ->pluck('content')
             ->implode(' ');
-        $intentContext = trim($recentUserText . ' ' . $message);
+        // Only fold earlier turns in for short clarification replies (e.g. "men",
+        // "$50"); a substantive new question stands on its own so it isn't
+        // polluted by an earlier topic (e.g. "anything on sale" after shoes).
+        $isShortReply = str_word_count($message) <= 2;
+        $intentContext = $isShortReply ? trim($recentUserText . ' ' . $message) : $message;
 
         try {
             // Fetch real products from DB using full conversation context for intent
@@ -85,13 +89,20 @@ class ChatApiController extends Controller
             '/\b(product|item|outfit|wear|buy|get|need|want|show|find|looking|'
             . 'shoes?|sneakers?|footwear|boots?|pants?|shorts?|leggings?|'
             . 'shirt|tee|top|jacket|hoodie|sweatshirt|joggers?|set|'
-            . 'collection|recommend|suggest|budget|cheap|affordable|under|below|price|cost)\b|\$/i',
+            . 'collection|recommend|suggest|budget|cheap|affordable|under|below|price|cost|'
+            . 'sale|sales|discount|discounts|deal|deals|offer|offers|promo|clearance|reduced)\b|\$/i',
             $message
         );
 
         if (!$isProductQuery) {
             return [[], false];
         }
+
+        // ── On-sale intent ─────────────────────────────────────────────────────
+        $onSale = (bool) preg_match(
+            '/\b(sale|sales|discount|discounts|deal|deals|offer|offers|promo|clearance|reduced|% ?off|on sale)\b/i',
+            $message
+        );
 
         // ── Extract budget ──────────────────────────────────────────────────────
         $budget = null;
@@ -203,10 +214,35 @@ class ChatApiController extends Controller
             $query->whereIn('category_id', $categoryIds);
         }
 
+        // On-sale request: only products with an active discount.
+        if ($onSale) {
+            $query->whereNotNull('compare_at_price')
+                  ->whereColumn('compare_at_price', '>', 'price');
+        }
+
         $candidates = $query->limit(200)->get(['id', 'name', 'price', 'compare_at_price', 'image', 'category_id', 'embedding']);
 
         if ($candidates->isEmpty()) {
             return [[], false];
+        }
+
+        // On-sale request: rank by biggest saving — "on sale" carries no useful
+        // semantic signal, so skip the embedding step entirely.
+        if ($onSale) {
+            $products = $candidates
+                ->sortByDesc(fn ($p) => (float) $p->compare_at_price - (float) $p->price)
+                ->take(3);
+
+            $result = $products->values()->map(fn ($p) => [
+                'id'               => $p->id,
+                'name'             => $p->name,
+                'price'            => (float) $p->price,
+                'compare_at_price' => $p->compare_at_price ? (float) $p->compare_at_price : null,
+                'image'            => $p->image,
+                'category'         => $p->category ? $p->category->name : null,
+            ])->toArray();
+
+            return [$result, false];
         }
 
         // ── Semantic retrieval: rank candidates by similarity to the query ────────
@@ -293,14 +329,18 @@ class ChatApiController extends Controller
             $lines = [];
             $total = 0;
             foreach ($suggestedProducts as $p) {
-                $cat    = $p['category'] ? " ({$p['category']})" : '';
-                $lines[] = "  • {$p['name']}{$cat} — \${$p['price']}";
+                $cat  = $p['category'] ? " ({$p['category']})" : '';
+                $sale = (! empty($p['compare_at_price']) && $p['compare_at_price'] > $p['price'])
+                    ? " — ON SALE, was \${$p['compare_at_price']}"
+                    : '';
+                $lines[] = "  • {$p['name']}{$cat} — \${$p['price']}{$sale}";
                 $total  += $p['price'];
             }
             $contextParts[] = "Matching products from the XTREMEFIT catalog:\n" . implode("\n", $lines);
             if (count($suggestedProducts) > 1) {
                 $contextParts[] = "Combined total: \$" . number_format($total, 2);
             }
+            $contextParts[] = "INSTRUCTION: These products match the customer's request — present them as recommendations. This request IS on-topic; do NOT use the off-topic refusal when products are listed here.";
         }
 
         $contextBlock = $contextParts
@@ -313,7 +353,7 @@ You are the official AI shopping assistant for XTREMEFIT, a sportswear e-commerc
 
 STRICT RULES — you must follow these at all times:
 
-1. SCOPE: You ONLY discuss topics directly related to XTREMEFIT: products, sizes, fit, styles, prices, stock, delivery, shipping, returns, payment methods, and using the website. Nothing else.
+1. SCOPE: You ONLY discuss topics directly related to XTREMEFIT: products, sizes, fit, styles, prices, stock, delivery, shipping, returns, payment methods, and using the website. Questions about what products exist, what is on sale/discounted, new, or popular are ALWAYS on-topic — answer them, do not refuse.
 
 2. OFF-TOPIC REFUSAL: If the user asks about ANYTHING outside XTREMEFIT (other brands, politics, news, general knowledge, health, coding, recipes, sports teams, celebrities, etc.), respond ONLY with:
    "I'm here to help you with XTREMEFIT products and your shopping experience. Is there anything about our collection, sizes, or delivery I can help you with?"
