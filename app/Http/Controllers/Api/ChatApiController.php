@@ -237,7 +237,10 @@ class ChatApiController extends Controller
             $products = $ranked->take(3);
         }
 
-        $result = $products->map(fn ($p) => [
+        // values() re-indexes: sortByDesc/take preserve the original candidate
+        // keys, which would otherwise make json_encode emit an object instead of
+        // an array, and the client only renders product cards for a real array.
+        $result = $products->values()->map(fn ($p) => [
             'id'               => $p->id,
             'name'             => $p->name,
             'price'            => (float) $p->price,
