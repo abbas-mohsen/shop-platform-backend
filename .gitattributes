@@ -1,5 +1,11 @@
 * text=auto
 
+# Keep shell scripts / Docker files LF so they run on Linux (Render).
+*.sh                 text eol=lf
+Dockerfile           text eol=lf
+docker/entrypoint.sh text eol=lf
+docker/vhost.conf    text eol=lf
+
 *.blade.php diff=html
 *.css diff=css
 *.html diff=html
