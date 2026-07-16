@@ -63,9 +63,12 @@ class Product extends Model
     {
         $colorsStock = $this->colors_stock ?? [];
         if ($size && $color && is_array($colorsStock)
-            && isset($colorsStock[$size]) && is_array($colorsStock[$size])
-            && array_key_exists($color, $colorsStock[$size])) {
-            return (int) $colorsStock[$size][$color];
+            && isset($colorsStock[$size]) && is_array($colorsStock[$size])) {
+            // This size tracks stock per colour, so an unlisted colour has
+            // none — return 0 instead of falling back to the size-wide total.
+            return array_key_exists($color, $colorsStock[$size])
+                ? (int) $colorsStock[$size][$color]
+                : 0;
         }
 
         $sizesStock = $this->sizes_stock ?? [];

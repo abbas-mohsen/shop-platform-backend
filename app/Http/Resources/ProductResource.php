@@ -6,6 +6,17 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class ProductResource extends JsonResource
 {
+    /**
+     * Force a size-keyed stock map to serialise as a JSON object. Numeric shoe
+     * size keys ("40".."47") otherwise get re-indexed into a JSON array by the
+     * resource/response pipeline, which breaks per-size lookups on the client
+     * (they fall back to the product-wide total). Letter sizes are unaffected.
+     */
+    private function objectify($value)
+    {
+        return (is_array($value) && $value !== []) ? (object) $value : $value;
+    }
+
     public function toArray($request): array
     {
         return [
@@ -18,9 +29,9 @@ class ProductResource extends JsonResource
             'stock'              => $this->stock,
             'image'              => $this->image,
             'sizes'              => $this->sizes,
-            'sizes_stock'        => $this->sizes_stock,
+            'sizes_stock'        => $this->objectify($this->sizes_stock),
             'color_options'      => $this->color_options,
-            'colors_stock'       => $this->colors_stock,
+            'colors_stock'       => $this->objectify($this->colors_stock),
             'available_sizes'    => $this->available_sizes,
             'category'           => new CategoryResource($this->whenLoaded('category')),
             'reviews_count'      => $this->when(isset($this->reviews_count), $this->reviews_count),

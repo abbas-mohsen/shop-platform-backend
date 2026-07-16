@@ -116,8 +116,9 @@ class CheckoutService
     private function validateStock(Product $product, int $qty, ?string $size, ?string $color = null): void
     {
         $colorsStock = $product->colors_stock ?? [];
-        if ($size && $color && is_array($colorsStock) && isset($colorsStock[$size]) && array_key_exists($color, $colorsStock[$size])) {
-            $available = (int) $colorsStock[$size][$color];
+        if ($size && $color && is_array($colorsStock) && isset($colorsStock[$size]) && is_array($colorsStock[$size])) {
+            // Per-colour tracked size: an unlisted colour has none (0).
+            $available = array_key_exists($color, $colorsStock[$size]) ? (int) $colorsStock[$size][$color] : 0;
             if ($available < $qty) {
                 throw new \App\Exceptions\InsufficientStockException(
                     "Not enough stock for size {$size} of {$product->name}"
