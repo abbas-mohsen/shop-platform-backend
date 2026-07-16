@@ -15,8 +15,9 @@ Do them in this order.
 
 ## 1. Database — Aiven free MySQL
 1. Create an Aiven account → **Create service → MySQL → Free plan**.
-2. When it's running, copy the **Host, Port, Database, User, Password** (Aiven shows a connection URI).
-3. Keep these for the Render env vars below.
+2. When it's running, copy the **Host, Port, Database (defaultdb), User (avnadmin), Password**.
+3. **Download the CA certificate** (service Overview → Connection information → *CA certificate* → download, or the "Secure connection" step). Aiven MySQL requires SSL, so this is needed.
+4. In Render, add that file as a **Secret File** (Render service → Environment → Secret Files) named `aiven-ca.pem`; Render mounts it at `/etc/secrets/aiven-ca.pem`. Then set `MYSQL_ATTR_SSL_CA=/etc/secrets/aiven-ca.pem` (already in the env list below). If you ever get a certificate-verification error, add `DB_SSL_VERIFY=false`.
 
 ## 2. Image storage — Cloudflare R2
 1. Cloudflare → **R2 → Create bucket** (e.g. `xtremefit-media`).
@@ -71,11 +72,14 @@ FRONTEND_URL=https://xtremefitlb.com
 CORS_ALLOWED_ORIGINS=https://xtremefitlb.com,https://www.xtremefitlb.com
 
 DB_CONNECTION=mysql
-DB_HOST=            # from Aiven
-DB_PORT=            # from Aiven
-DB_DATABASE=        # from Aiven
-DB_USERNAME=        # from Aiven
+DB_HOST=            # from Aiven (e.g. mysql-xxxx.l.aivencloud.com)
+DB_PORT=            # from Aiven (e.g. 18280)
+DB_DATABASE=defaultdb
+DB_USERNAME=avnadmin
 DB_PASSWORD=        # from Aiven
+# Aiven requires SSL — upload the CA as a Render Secret File and point to it:
+MYSQL_ATTR_SSL_CA=/etc/secrets/aiven-ca.pem
+# DB_SSL_VERIFY=false   # only if you hit a cert-verification error
 
 # Image storage on Cloudflare R2
 MEDIA_DISK=s3

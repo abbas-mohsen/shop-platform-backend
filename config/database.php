@@ -58,9 +58,15 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // SSL is enabled when MYSQL_ATTR_SSL_CA points at a CA bundle
+            // (e.g. Aiven's CA on Render). DB_SSL_VERIFY=false is an escape
+            // hatch if certificate verification fails. Locally it stays off.
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+                PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => env('MYSQL_ATTR_SSL_CA')
+                    ? env('DB_SSL_VERIFY', true)
+                    : null,
+            ], fn ($v) => $v !== null) : [],
         ],
 
         'pgsql' => [
