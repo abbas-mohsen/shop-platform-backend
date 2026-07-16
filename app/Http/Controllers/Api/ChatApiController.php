@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\StoreSetting;
 use App\Services\EmbeddingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -89,7 +90,7 @@ class ChatApiController extends Controller
             '/\b(product|item|outfit|wear|buy|get|need|want|show|find|looking|'
             . 'shoes?|sneakers?|footwear|boots?|pants?|shorts?|leggings?|'
             . 'shirt|tee|top|jacket|hoodie|sweatshirt|joggers?|set|'
-            . 'collection|recommend|suggest|budget|cheap|affordable|under|below|price|cost|'
+            . 'collection|recommend|suggest|budget|cheap\w*|affordable|inexpensive|under|below|price|cost|'
             . 'sale|sales|discount|discounts|deal|deals|offer|offers|promo|clearance|reduced)\b|\$/i',
             $message
         );
@@ -101,6 +102,12 @@ class ChatApiController extends Controller
         // ── On-sale intent ─────────────────────────────────────────────────────
         $onSale = (bool) preg_match(
             '/\b(sale|sales|discount|discounts|deal|deals|offer|offers|promo|clearance|reduced|% ?off|on sale)\b/i',
+            $message
+        );
+
+        // ── Cheapest / lowest-price intent ─────────────────────────────────────
+        $cheapest = (bool) preg_match(
+            '/\b(cheapest|cheaper|least expensive|lowest[- ]?price[d]?|most affordable)\b/i',
             $message
         );
 
@@ -226,12 +233,12 @@ class ChatApiController extends Controller
             return [[], false];
         }
 
-        // On-sale request: rank by biggest saving — "on sale" carries no useful
-        // semantic signal, so skip the embedding step entirely.
-        if ($onSale) {
-            $products = $candidates
-                ->sortByDesc(fn ($p) => (float) $p->compare_at_price - (float) $p->price)
-                ->take(3);
+        // Price/discount intents carry no useful semantic signal — rank directly
+        // and skip the embedding step.
+        if ($onSale || $cheapest) {
+            $products = $onSale
+                ? $candidates->sortByDesc(fn ($p) => (float) $p->compare_at_price - (float) $p->price)->take(3)
+                : $candidates->sortBy(fn ($p) => (float) $p->price)->take(3);
 
             $result = $products->values()->map(fn ($p) => [
                 'id'               => $p->id,
@@ -312,6 +319,22 @@ class ChatApiController extends Controller
         // ── Build context for the prompt ───────────────────────────────────────
         $contextParts = [];
 
+        // Real store facts so delivery/payment answers are accurate.
+        $deliveryCharge    = (float) StoreSetting::getValue('delivery_charge', '0');
+        $freeShipEnabled   = (bool) StoreSetting::getValue('free_shipping_enabled', '0');
+        $freeShipThreshold = (float) StoreSetting::getValue('free_shipping_threshold', '0');
+        if ($deliveryCharge <= 0) {
+            $deliveryText = 'Delivery is free.';
+        } else {
+            $deliveryText = 'Delivery costs $' . number_format($deliveryCharge, 2) . '.';
+            if ($freeShipEnabled && $freeShipThreshold > 0) {
+                $deliveryText .= ' Orders over $' . number_format($freeShipThreshold, 2) . ' ship free.';
+            }
+        }
+        $contextParts[] = 'STORE FACTS (use these verbatim for payment/delivery questions): '
+            . 'Payment is CASH ON DELIVERY only — XTREMEFIT does NOT accept card or online payment. '
+            . $deliveryText . ' We deliver across Lebanon.';
+
         if (!empty($context['path'])) {
             $contextParts[] = "Current page: {$context['path']}";
         }
@@ -370,6 +393,12 @@ STRICT RULES — you must follow these at all times:
 7. TONE: Warm, concise, and professional. Keep replies to 2–5 sentences unless listing products.
 
 8. STORE INFO: XTREMEFIT is a Lebanese sportswear store selling men's, women's, and footwear collections.
+
+8a. PAYMENT & DELIVERY (on-topic — NEVER refuse these): Payment questions, including "do you take card?", must be answered directly: "We accept CASH ON DELIVERY only — card and online payment are not available." Never say cards are accepted, and never respond to a payment question with the off-topic refusal. For delivery/shipping, use the STORE FACTS in [Context] exactly; no vague "it depends" answers.
+
+8b. GREETINGS: A simple greeting ("hi", "hello") gets a short, warm welcome inviting a question — never the off-topic refusal.
+
+8c. SIZING: When the user gives a height and/or weight, you MUST open with an explicit recommended size (e.g., "I'd suggest size L"), then you may add one product. XTREMEFIT clothing runs S, M, L, XL, XXL; as a rough guide by weight: M ≈ up to ~70kg, L ≈ ~70-85kg, XL ≈ ~85-100kg, XXL above that. Note fit can vary.
 
 9. GENDER: Never assume or guess the user's gender. Only ask about gender when ALL of these are true: (a) the user is asking for a full OUTFIT or complete look, (b) they did NOT say "men's" or "women's", and (c) there are NO "Matching products" in the [Context]. In that one case ask exactly once: "Would you like men's or women's?" — do not use the word "outfit" unless they did. For every other request — browsing a category or a single item (e.g. "what shoes do you have", "show me shirts"), or whenever "Matching products" already appear in the [Context] — present those products directly and do NOT ask about gender. Never mix men's and women's items in the same outfit.
 
