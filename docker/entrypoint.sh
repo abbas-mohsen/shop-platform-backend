@@ -10,6 +10,8 @@ sed -ri "s!<VirtualHost \*:80>!<VirtualHost *:${PORT}>!g" /etc/apache2/sites-ava
 php artisan config:cache || true
 php artisan route:cache || true
 php artisan migrate --force || true
+# Create the permanent owner account from SUPER_ADMIN_* (idempotent — skips if it exists).
+php artisan db:seed --class=SuperAdminSeeder --force || true
 php artisan storage:link || true
 
 exec apache2-foreground
