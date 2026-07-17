@@ -66,6 +66,13 @@ return [
                 PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => env('MYSQL_ATTR_SSL_CA')
                     ? env('DB_SSL_VERIFY', true)
                     : null,
+                // Aiven MySQL enables sql_require_primary_key by default, which
+                // rejects Laravel's stock password_resets table (it has no PK).
+                // Relax it per connection when DB_DISABLE_REQUIRE_PK is set
+                // (production/Aiven only — local MySQL lacks this variable).
+                PDO::MYSQL_ATTR_INIT_COMMAND => env('DB_DISABLE_REQUIRE_PK')
+                    ? 'SET SESSION sql_require_primary_key=0'
+                    : null,
             ], fn ($v) => $v !== null) : [],
         ],
 
