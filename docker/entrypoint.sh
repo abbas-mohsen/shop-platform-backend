@@ -6,6 +6,15 @@ PORT="${PORT:-10000}"
 sed -ri "s!Listen 80!Listen ${PORT}!g" /etc/apache2/ports.conf
 sed -ri "s!<VirtualHost \*:80>!<VirtualHost *:${PORT}>!g" /etc/apache2/sites-available/000-default.conf
 
+# Render mounts Secret Files readable by root only, but Apache runs PHP as
+# www-data. Copy the DB CA cert somewhere www-data can read it and point the
+# config at the copy BEFORE the config cache is built (the path gets baked in).
+if [ -n "${MYSQL_ATTR_SSL_CA:-}" ] && [ -f "$MYSQL_ATTR_SSL_CA" ]; then
+  cp "$MYSQL_ATTR_SSL_CA" /var/www/html/db-ca.pem
+  chmod 644 /var/www/html/db-ca.pem
+  export MYSQL_ATTR_SSL_CA=/var/www/html/db-ca.pem
+fi
+
 # Cache config/routes, run migrations, link storage (idempotent).
 php artisan config:cache || true
 php artisan route:cache || true
@@ -20,5 +29,9 @@ fi
 # Create the permanent owner account from SUPER_ADMIN_* (idempotent — skips if it exists).
 php artisan db:seed --class=SuperAdminSeeder --force || true
 php artisan storage:link || true
+
+# The artisan commands above ran as root and may have created files in
+# storage/ and bootstrap/cache/ that www-data (Apache) can't write to.
+chown -R www-data:www-data storage bootstrap/cache || true
 
 exec apache2-foreground
