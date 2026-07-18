@@ -55,22 +55,24 @@ class Product extends Model
     }
 
     /**
-     * Available stock for a specific size/color, using the same precedence as
-     * checkout: colour-within-size stock, then per-size stock, then the
-     * product-level stock. Returns null when no stock constraint is tracked.
+     * The product's single colour. Colours used to be a per-size stock matrix
+     * (colors_stock); that was collapsed to one informational colour per
+     * product, stored as the first entry of the legacy color_options column.
      */
-    public function availableStockFor(?string $size = null, ?string $color = null): ?int
+    public function getColorAttribute(): ?string
     {
-        $colorsStock = $this->colors_stock ?? [];
-        if ($size && $color && is_array($colorsStock)
-            && isset($colorsStock[$size]) && is_array($colorsStock[$size])) {
-            // This size tracks stock per colour, so an unlisted colour has
-            // none — return 0 instead of falling back to the size-wide total.
-            return array_key_exists($color, $colorsStock[$size])
-                ? (int) $colorsStock[$size][$color]
-                : 0;
-        }
+        $options = $this->color_options;
 
+        return is_array($options) && !empty($options) ? (string) $options[0] : null;
+    }
+
+    /**
+     * Available stock for a specific size, using the same precedence as
+     * checkout: per-size stock, then the product-level stock. Returns null
+     * when no stock constraint is tracked.
+     */
+    public function availableStockFor(?string $size = null): ?int
+    {
         $sizesStock = $this->sizes_stock ?? [];
         if ($size && is_array($sizesStock) && array_key_exists($size, $sizesStock)) {
             return (int) $sizesStock[$size];

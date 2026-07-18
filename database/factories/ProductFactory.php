@@ -23,8 +23,7 @@ class ProductFactory extends Factory
             'image' => null,
             'sizes' => json_encode(['XS', 'S', 'M', 'L', 'XL']),
             'sizes_stock' => json_encode(['XS' => 10, 'S' => 15, 'M' => 20, 'L' => 15, 'XL' => 10]),
-            'color_options' => json_encode(['Black', 'White', 'Red']),
-            'colors_stock' => json_encode(['Black' => 20, 'White' => 15, 'Red' => 10]),
+            'color_options' => json_encode(['Black']),
         ];
     }
 
@@ -33,7 +32,6 @@ class ProductFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'stock' => 0,
             'sizes_stock' => json_encode(['XS' => 0, 'S' => 0, 'M' => 0, 'L' => 0, 'XL' => 0]),
-            'colors_stock' => json_encode(['Black' => 0, 'White' => 0, 'Red' => 0]),
         ]);
     }
 

@@ -23,7 +23,7 @@ class CheckoutService
                 $size    = $item['size'] ?? null;
                 $color   = $item['color'] ?? null;
 
-                $this->validateStock($product, $qty, $size, $color);
+                $this->validateStock($product, $qty, $size);
 
                 $unitPrice = $product->price;
                 $lineTotal = $unitPrice * $qty;
@@ -80,7 +80,7 @@ class CheckoutService
                     'color'      => $itemData['color'],
                 ]);
 
-                $this->deductStock($itemData['product'], $itemData['quantity'], $itemData['size'], $itemData['color'] ?? null);
+                $this->deductStock($itemData['product'], $itemData['quantity'], $itemData['size']);
             }
 
             $order->load('items.product');
@@ -113,20 +113,8 @@ class CheckoutService
         return $order;
     }
 
-    private function validateStock(Product $product, int $qty, ?string $size, ?string $color = null): void
+    private function validateStock(Product $product, int $qty, ?string $size): void
     {
-        $colorsStock = $product->colors_stock ?? [];
-        if ($size && $color && is_array($colorsStock) && isset($colorsStock[$size]) && is_array($colorsStock[$size])) {
-            // Per-colour tracked size: an unlisted colour has none (0).
-            $available = array_key_exists($color, $colorsStock[$size]) ? (int) $colorsStock[$size][$color] : 0;
-            if ($available < $qty) {
-                throw new \App\Exceptions\InsufficientStockException(
-                    "Not enough stock for size {$size} of {$product->name}"
-                );
-            }
-            return;
-        }
-
         $sizesStock = $product->sizes_stock ?? [];
         if ($size && is_array($sizesStock) && array_key_exists($size, $sizesStock)) {
             $available = (int) $sizesStock[$size];
@@ -155,15 +143,8 @@ class CheckoutService
                 continue;
             }
 
-            $size  = $item->size;
-            $color = $item->color;
-            $qty   = $item->quantity;
-
-            $colorsStock = $product->colors_stock ?? [];
-            if ($size && $color && is_array($colorsStock) && isset($colorsStock[$size]) && array_key_exists($color, $colorsStock[$size])) {
-                $colorsStock[$size][$color] = (int) $colorsStock[$size][$color] + $qty;
-                $product->colors_stock      = $colorsStock;
-            }
+            $size = $item->size;
+            $qty  = $item->quantity;
 
             $sizesStock = $product->sizes_stock ?? [];
             if ($size && is_array($sizesStock) && array_key_exists($size, $sizesStock)) {
@@ -179,14 +160,8 @@ class CheckoutService
         }
     }
 
-    private function deductStock(Product $product, int $qty, ?string $size, ?string $color = null): void
+    private function deductStock(Product $product, int $qty, ?string $size): void
     {
-        $colorsStock = $product->colors_stock ?? [];
-        if ($size && $color && is_array($colorsStock) && isset($colorsStock[$size]) && array_key_exists($color, $colorsStock[$size])) {
-            $colorsStock[$size][$color] = max(0, (int) $colorsStock[$size][$color] - $qty);
-            $product->colors_stock      = $colorsStock;
-        }
-
         $sizesStock = $product->sizes_stock ?? [];
         if ($size && is_array($sizesStock) && array_key_exists($size, $sizesStock)) {
             $sizesStock[$size]    = max(0, (int) $sizesStock[$size] - $qty);

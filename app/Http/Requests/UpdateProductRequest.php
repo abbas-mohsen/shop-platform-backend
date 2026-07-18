@@ -23,9 +23,8 @@ class UpdateProductRequest extends FormRequest
             'sizes'            => ['nullable', 'array'],
             'sizes.*'          => ['string', 'max:10'],
             'sizes_stock'      => ['nullable'],
-            'colors_stock'     => ['nullable'],
             'compare_at_price' => ['nullable', 'numeric', 'min:0'],
-            'color_options'    => ['nullable', 'string'],
+            'color'            => ['nullable', 'string', 'max:50'],
         ];
     }
 }

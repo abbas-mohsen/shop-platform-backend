@@ -52,7 +52,7 @@ class CartApiController extends Controller
 
         // Never let an out-of-stock (or over-quantity) line into the cart.
         // quantity here is the absolute target quantity for the line.
-        $available = $product->availableStockFor($size, $color);
+        $available = $product->availableStockFor($size);
         if (! is_null($available)) {
             if ($available <= 0) {
                 return response()->json([
