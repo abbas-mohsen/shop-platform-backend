@@ -76,10 +76,7 @@ class AdminOrderApiController extends Controller
         $order->status = $data['status'];
         $order->save();
 
-        // Restore stock when an order is cancelled via status change
-        if ($data['status'] === 'cancelled' && $oldStatus !== 'cancelled') {
-            $this->checkoutService->restoreStock($order);
-        }
+        $this->syncStockForTransition($order, $oldStatus, $data['status']);
 
         // Send status update email
         if ($oldStatus !== $order->status) {
@@ -128,9 +125,7 @@ class AdminOrderApiController extends Controller
             $order->status = $data['status'];
             $order->save();
 
-            if ($data['status'] === 'cancelled' && $oldStatus !== 'cancelled') {
-                $this->checkoutService->restoreStock($order);
-            }
+            $this->syncStockForTransition($order, $oldStatus, $data['status']);
 
             try {
                 $order->loadMissing('user');
@@ -148,6 +143,25 @@ class AdminOrderApiController extends Controller
             'message'       => "{$updated} order(s) updated.",
             'updated_count' => $updated,
         ]);
+    }
+
+    /**
+     * Keep inventory in sync with the order's lifecycle. Rejected and
+     * cancelled orders don't consume stock, so their units are restored;
+     * re-activating a rejected order takes the units back out.
+     * (Cancelled is terminal, so only rejected can ever leave this set.)
+     */
+    private function syncStockForTransition(Order $order, string $oldStatus, string $newStatus): void
+    {
+        $restocked = ['rejected', 'cancelled'];
+        $was  = in_array($oldStatus, $restocked, true);
+        $will = in_array($newStatus, $restocked, true);
+
+        if (! $was && $will) {
+            $this->checkoutService->restoreStock($order);
+        } elseif ($was && ! $will) {
+            $this->checkoutService->reapplyStock($order);
+        }
     }
 
     public function cancel(Order $order)

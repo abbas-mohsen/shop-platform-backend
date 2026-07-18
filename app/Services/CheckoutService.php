@@ -133,6 +133,37 @@ class CheckoutService
         }
     }
 
+    /**
+     * Take an order's units back OUT of stock. Mirror of restoreStock(),
+     * used when a rejected order (whose stock was restored) is re-activated.
+     */
+    public function reapplyStock(Order $order): void
+    {
+        $order->loadMissing('items.product');
+
+        foreach ($order->items as $item) {
+            $product = $item->product;
+            if (! $product) {
+                continue;
+            }
+
+            $size = $item->size;
+            $qty  = $item->quantity;
+
+            $sizesStock = $product->sizes_stock ?? [];
+            if ($size && is_array($sizesStock) && array_key_exists($size, $sizesStock)) {
+                $sizesStock[$size]    = max(0, (int) $sizesStock[$size] - $qty);
+                $product->sizes_stock = $sizesStock;
+            }
+
+            if (! is_null($product->stock)) {
+                $product->stock = max(0, (int) $product->stock - $qty);
+            }
+
+            $product->save();
+        }
+    }
+
     public function restoreStock(Order $order): void
     {
         $order->loadMissing('items.product');

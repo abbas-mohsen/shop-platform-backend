@@ -23,8 +23,11 @@ class CreateOrdersTable extends Migration
             // Cash or Card (from your proposal)
             $table->enum('payment_method', ['cash', 'card'])->default('cash');
 
-            // pending -> approved -> delivered OR rejected
-            $table->enum('status', ['pending', 'approved', 'rejected', 'delivered'])
+            // pending -> approved -> delivered OR rejected / cancelled.
+            // 'cancelled' is listed here so fresh installs (and the SQLite
+            // test DB, where the later MySQL-only enum migration is skipped)
+            // accept it; on MySQL the later migration is an idempotent no-op.
+            $table->enum('status', ['pending', 'approved', 'rejected', 'delivered', 'cancelled'])
                   ->default('pending');
 
             $table->decimal('total', 10, 2)->default(0);
