@@ -8,6 +8,7 @@ use App\Services\TryOnService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class TryOnApiController extends Controller
 {
@@ -24,15 +25,16 @@ class TryOnApiController extends Controller
             'photo' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ]);
 
-        // Garment image — read from local storage as base64 so FASHN's servers
-        // never need to reach our localhost URL (which they can't, in dev).
+        // Garment image — read from the configured media disk (Cloudflare R2 in
+        // production, local disk in dev) as base64 so FASHN's servers never need
+        // to reach a URL of ours directly.
         if (!$product->image) {
             return response()->json(['message' => 'This product has no image to try on.'], 422);
         }
 
-        $garmentPath = storage_path('app/public/' . $product->image);
-        if (!is_file($garmentPath)) {
-            return response()->json(['message' => 'Product image not found on disk.'], 422);
+        $disk = Storage::disk(config('filesystems.media_disk'));
+        if (!$disk->exists($product->image)) {
+            return response()->json(['message' => 'Product image not found.'], 422);
         }
 
         // Customer photo — read directly into memory as base64.
@@ -44,9 +46,10 @@ class TryOnApiController extends Controller
             file_get_contents($photo->getRealPath())
         );
 
-        $garmentMime   = mime_content_type($garmentPath) ?: 'image/jpeg';
+        $ext = strtolower(pathinfo($product->image, PATHINFO_EXTENSION));
+        $garmentMime = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'][$ext] ?? 'image/jpeg';
         $garmentBase64 = 'data:' . $garmentMime . ';base64,' . base64_encode(
-            file_get_contents($garmentPath)
+            $disk->get($product->image)
         );
 
         try {
