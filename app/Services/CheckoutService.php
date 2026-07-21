@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
+use App\Jobs\SendOrderEmailsJob;
 use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -95,25 +95,22 @@ class CheckoutService
             $order->setRelation('user', $user);
         }
 
-        // Send order emails after the HTTP response has already gone back to
-        // the customer. A detached shell subprocess was used previously to
-        // avoid blocking on SMTP, but that doesn't reliably survive a Docker
-        // container's process lifecycle in production — the orphaned
-        // background process can be killed before it finishes, so the email
-        // silently never sends. Calling it synchronously instead works
-        // reliably, but real SMTP round-trips from this host are slow enough
-        // (two Gmail sends can take ~40s combined) that checkout itself would
-        // hang. dispatch()->afterResponse() runs in this same process — no
-        // subprocess, no queue worker needed — but only *after* the response
-        // is flushed, so checkout stays fast either way.
-        $orderId = (int) $order->id;
-        dispatch(function () use ($orderId) {
-            try {
-                Artisan::call('order:send-emails', ['orderId' => $orderId]);
-            } catch (\Throwable $e) {
-                Log::warning('Order email dispatch failed: ' . $e->getMessage());
-            }
-        })->afterResponse();
+        // Queue the order emails on the real (database-backed) queue, picked
+        // up by a persistent worker process running alongside Apache in the
+        // container (see docker/entrypoint.sh). Two earlier approaches both
+        // failed in production: a detached shell subprocess doesn't survive
+        // Docker's process lifecycle (silently killed before it finishes),
+        // and dispatch()->afterResponse() only truly defers work under
+        // PHP-FPM's fastcgi_finish_request() — this container runs Apache +
+        // mod_php, which has no such hook, so that just blocked checkout for
+        // as long as the real SMTP round-trips took (~40s for two emails).
+        // Dispatching here is just a fast database insert; the worker sends
+        // the emails independently of this request.
+        try {
+            SendOrderEmailsJob::dispatch((int) $order->id);
+        } catch (\Throwable $e) {
+            Log::warning('Order email dispatch failed: ' . $e->getMessage());
+        }
 
         return $order;
     }

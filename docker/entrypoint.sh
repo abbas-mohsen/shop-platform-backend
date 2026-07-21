@@ -34,4 +34,20 @@ php artisan storage:link || true
 # storage/ and bootstrap/cache/ that www-data (Apache) can't write to.
 chown -R www-data:www-data storage bootstrap/cache || true
 
+# Persistent background queue worker, running for the container's whole
+# lifetime — independent of any single HTTP request. This container runs
+# Apache + mod_php (no PHP-FPM), so there is no way to "finish the response
+# early and keep working" for a single request; a real worker process is the
+# only reliable way to send order emails without blocking checkout on slow
+# SMTP. Requires QUEUE_CONNECTION=database (a sync queue would just run jobs
+# inline again). The retry loop restarts the worker if it ever crashes.
+if [ "${QUEUE_CONNECTION:-sync}" = "database" ]; then
+  (
+    while true; do
+      su -s /bin/bash www-data -c "cd /var/www/html && php artisan queue:work --queue=default --tries=1 --timeout=60 --sleep=3" || true
+      sleep 2
+    done
+  ) &
+fi
+
 exec apache2-foreground
