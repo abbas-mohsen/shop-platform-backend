@@ -136,8 +136,10 @@ class ChatApiController extends Controller
         }
 
         // ── Is this an outfit request? ─────────────────────────────────────────
+        // "set"/"sets" alone counts too (e.g. "give me a set") — it's just as
+        // gender-specific as "outfit" and must not skip the clarification.
         $isOutfit = (bool) preg_match(
-            '/\b(outfit|full set|complete look|combination|full look|whole look)\b/i',
+            '/\b(outfit|sets?|complete look|combination|full look|whole look)\b/i',
             $message
         );
 
@@ -263,14 +265,23 @@ class ChatApiController extends Controller
             ->sortByDesc('similarity');
 
         if ($isOutfit) {
-            // Pick the best-matching product per category for a coherent outfit
+            // Pick the best-matching product per category for a coherent outfit.
+            // Each candidate is already <= budget individually (SQL filter
+            // above), but 2-4 of them combined can still bust it — so track a
+            // running total and skip anything that would push it over.
             $seenCategories = [];
             $picked = [];
+            $runningTotal = 0.0;
             foreach ($ranked as $p) {
-                if (!in_array($p->category_id, $seenCategories)) {
-                    $seenCategories[] = $p->category_id;
-                    $picked[] = $p;
+                if (in_array($p->category_id, $seenCategories)) {
+                    continue;
                 }
+                if ($budget !== null && ($runningTotal + (float) $p->price) > $budget) {
+                    continue;
+                }
+                $seenCategories[] = $p->category_id;
+                $picked[] = $p;
+                $runningTotal += (float) $p->price;
                 if (count($picked) >= 4) {
                     break;
                 }
