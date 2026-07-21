@@ -145,7 +145,7 @@ class OrderApiController extends Controller
         try {
             $user = $request->user();
             if ($user && $user->email) {
-                Mail::to($user->email)->queue(new OrderStatusUpdated($order->fresh(), $oldStatus));
+                Mail::to($user->email)->send(new OrderStatusUpdated($order->fresh(), $oldStatus));
             }
         } catch (\Exception $e) {
             \Log::warning('Order cancellation email failed: ' . $e->getMessage());

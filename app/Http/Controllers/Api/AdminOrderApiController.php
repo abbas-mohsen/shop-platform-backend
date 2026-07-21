@@ -83,7 +83,7 @@ class AdminOrderApiController extends Controller
             try {
                 $order->loadMissing('user');
                 if ($order->user && $order->user->email) {
-                    Mail::to($order->user->email)->queue(new OrderStatusUpdated($order, $oldStatus));
+                    Mail::to($order->user->email)->send(new OrderStatusUpdated($order, $oldStatus));
                 }
             } catch (\Exception $e) {
                 \Log::warning('Order status email failed: ' . $e->getMessage());
@@ -130,7 +130,7 @@ class AdminOrderApiController extends Controller
             try {
                 $order->loadMissing('user');
                 if ($order->user && $order->user->email) {
-                    Mail::to($order->user->email)->queue(new OrderStatusUpdated($order, $oldStatus));
+                    Mail::to($order->user->email)->send(new OrderStatusUpdated($order, $oldStatus));
                 }
             } catch (\Exception $e) {
                 \Log::warning('Order status email failed: ' . $e->getMessage());
@@ -183,7 +183,7 @@ class AdminOrderApiController extends Controller
         try {
             $order->loadMissing('user');
             if ($order->user && $order->user->email) {
-                Mail::to($order->user->email)->queue(new OrderStatusUpdated($order->fresh(), 'pending'));
+                Mail::to($order->user->email)->send(new OrderStatusUpdated($order->fresh(), 'pending'));
             }
         } catch (\Exception $e) {
             \Log::warning('Order cancellation email failed: ' . $e->getMessage());

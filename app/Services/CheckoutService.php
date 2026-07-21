@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use App\Jobs\SendOrderEmailsJob;
 use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -95,19 +95,16 @@ class CheckoutService
             $order->setRelation('user', $user);
         }
 
-        // Queue the order emails on the real (database-backed) queue, picked
-        // up by a persistent worker process running alongside Apache in the
-        // container (see docker/entrypoint.sh). Two earlier approaches both
-        // failed in production: a detached shell subprocess doesn't survive
-        // Docker's process lifecycle (silently killed before it finishes),
-        // and dispatch()->afterResponse() only truly defers work under
-        // PHP-FPM's fastcgi_finish_request() — this container runs Apache +
-        // mod_php, which has no such hook, so that just blocked checkout for
-        // as long as the real SMTP round-trips took (~40s for two emails).
-        // Dispatching here is just a fast database insert; the worker sends
-        // the emails independently of this request.
+        // Send order emails synchronously, in this request. Two async
+        // approaches were tried and both proved unreliable in production: a
+        // detached shell subprocess doesn't survive Docker's process
+        // lifecycle, and a persistent background queue worker on a free-tier
+        // container can be killed or put to sleep between requests, silently
+        // dropping queued jobs. This blocks checkout for as long as the real
+        // SMTP round-trip takes (currently ~40s for two emails) — slow, but
+        // proven to actually deliver every time.
         try {
-            SendOrderEmailsJob::dispatch((int) $order->id);
+            Artisan::call('order:send-emails', ['orderId' => (int) $order->id]);
         } catch (\Throwable $e) {
             Log::warning('Order email dispatch failed: ' . $e->getMessage());
         }
