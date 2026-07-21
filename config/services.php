@@ -49,4 +49,11 @@ return [
         'key' => env('FASHN_API_KEY'),
     ],
 
+    // Resend transactional email API (HTTPS) — used because Render blocks
+    // outbound SMTP. When the key is empty the app falls back to normal SMTP.
+    'resend' => [
+        'key'  => env('RESEND_API_KEY'),
+        'from' => env('RESEND_FROM', 'XTREMEFIT <onboarding@resend.dev>'),
+    ],
+
 ];

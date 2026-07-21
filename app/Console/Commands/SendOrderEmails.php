@@ -6,6 +6,7 @@ use App\Mail\NewOrderAdmin;
 use App\Mail\OrderConfirmation;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\ResendService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -25,11 +26,17 @@ class SendOrderEmails extends Command
             return 1;
         }
 
+        $resend = app(ResendService::class);
+
         // ── Customer confirmation ─────────────────────────────────
         try {
             if ($order->user && $order->user->email) {
-                Mail::to($order->user->email)->send(new OrderConfirmation($order));
-                Log::info("Order #{$orderId}: confirmation sent to {$order->user->email}");
+                if ($resend->isConfigured()) {
+                    $resend->sendMailable($order->user->email, new OrderConfirmation($order));
+                } else {
+                    Mail::to($order->user->email)->send(new OrderConfirmation($order));
+                    Log::info("Order #{$orderId}: confirmation sent to {$order->user->email}");
+                }
             }
         } catch (\Throwable $e) {
             Log::error("Order #{$orderId}: confirmation failed: " . $e->getMessage());
@@ -59,7 +66,11 @@ class SendOrderEmails extends Command
             )));
 
             foreach ($adminEmails as $email) {
-                Mail::to($email)->send(new NewOrderAdmin($order));
+                if ($resend->isConfigured()) {
+                    $resend->sendMailable($email, new NewOrderAdmin($order));
+                } else {
+                    Mail::to($email)->send(new NewOrderAdmin($order));
+                }
             }
 
             if ($adminEmails) {

@@ -49,31 +49,26 @@ Route::get('/media/{path}', function (string $path) {
 Route::get('/_mailtest', function (\Illuminate\Http\Request $request) {
     $to    = $request->query('to', config('mail.admin_address') ?: config('mail.from.address'));
     $start = microtime(true);
-    try {
-        \Illuminate\Support\Facades\Mail::raw('XTREMEFIT mail diagnostic — if you got this, SMTP works.', function ($m) use ($to) {
-            $m->to($to)->subject('XTREMEFIT mail test');
-        });
-        return response()->json([
-            'ok'       => true,
-            'sent_to'  => $to,
-            'seconds'  => round(microtime(true) - $start, 2),
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'ok'       => false,
-            'seconds'  => round(microtime(true) - $start, 2),
-            'error'    => get_class($e),
-            'message'  => $e->getMessage(),
-            'config'   => [
-                'mailer'     => config('mail.default'),
-                'host'       => config('mail.mailers.smtp.host'),
-                'port'       => config('mail.mailers.smtp.port'),
-                'encryption' => config('mail.mailers.smtp.encryption'),
-                'username'   => substr((string) config('mail.mailers.smtp.username'), 0, 4) . '***',
-                'from'       => config('mail.from.address'),
-            ],
-        ], 500);
-    }
+
+    $resend = app(\App\Services\ResendService::class);
+    $payload = [
+        'from'    => config('services.resend.from'),
+        'to'      => [$to],
+        'subject' => 'XTREMEFIT mail test',
+        'html'    => '<p>XTREMEFIT mail diagnostic — if you got this, Resend works.</p>',
+    ];
+    $response = \Illuminate\Support\Facades\Http::withToken(config('services.resend.key'))
+        ->timeout(20)
+        ->post('https://api.resend.com/emails', $payload);
+
+    return response()->json([
+        'resend_configured' => $resend->isConfigured(),
+        'from'              => config('services.resend.from'),
+        'sent_to'          => $to,
+        'seconds'          => round(microtime(true) - $start, 2),
+        'status'           => $response->status(),
+        'body'             => $response->json() ?: $response->body(),
+    ], $response->successful() ? 200 : 500);
 });
 
 // Public store configuration endpoints

@@ -83,7 +83,9 @@ class AdminOrderApiController extends Controller
             try {
                 $order->loadMissing('user');
                 if ($order->user && $order->user->email) {
-                    Mail::to($order->user->email)->send(new OrderStatusUpdated($order, $oldStatus));
+                    $__r = app(\App\Services\ResendService::class);
+                if ($__r->isConfigured()) { $__r->sendMailable($order->user->email, new OrderStatusUpdated($order, $oldStatus)); }
+                else { Mail::to($order->user->email)->send(new OrderStatusUpdated($order, $oldStatus)); }
                 }
             } catch (\Exception $e) {
                 \Log::warning('Order status email failed: ' . $e->getMessage());
@@ -130,7 +132,9 @@ class AdminOrderApiController extends Controller
             try {
                 $order->loadMissing('user');
                 if ($order->user && $order->user->email) {
-                    Mail::to($order->user->email)->send(new OrderStatusUpdated($order, $oldStatus));
+                    $__r = app(\App\Services\ResendService::class);
+                if ($__r->isConfigured()) { $__r->sendMailable($order->user->email, new OrderStatusUpdated($order, $oldStatus)); }
+                else { Mail::to($order->user->email)->send(new OrderStatusUpdated($order, $oldStatus)); }
                 }
             } catch (\Exception $e) {
                 \Log::warning('Order status email failed: ' . $e->getMessage());
@@ -183,7 +187,9 @@ class AdminOrderApiController extends Controller
         try {
             $order->loadMissing('user');
             if ($order->user && $order->user->email) {
-                Mail::to($order->user->email)->send(new OrderStatusUpdated($order->fresh(), 'pending'));
+                $__r = app(\App\Services\ResendService::class);
+                if ($__r->isConfigured()) { $__r->sendMailable($order->user->email, new OrderStatusUpdated($order->fresh(), 'pending')); }
+                else { Mail::to($order->user->email)->send(new OrderStatusUpdated($order->fresh(), 'pending')); }
             }
         } catch (\Exception $e) {
             \Log::warning('Order cancellation email failed: ' . $e->getMessage());
