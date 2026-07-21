@@ -95,21 +95,25 @@ class CheckoutService
             $order->setRelation('user', $user);
         }
 
-        // Send order emails synchronously, in this same process. A detached
-        // shell subprocess was used previously to avoid blocking on SMTP, but
-        // that doesn't reliably survive a Docker container's process
-        // lifecycle in production — the orphaned background process can be
-        // killed before it finishes, so the email silently never sends.
-        // QUEUE_CONNECTION=sync means a real queue wouldn't give true async
-        // delivery here either, so sending inline is both simpler and
-        // actually reliable. SendOrderEmails already catches per-email
-        // failures internally and only logs them, so this never blocks
-        // checkout on an SMTP problem.
-        try {
-            Artisan::call('order:send-emails', ['orderId' => (int) $order->id]);
-        } catch (\Throwable $e) {
-            Log::warning('Order email dispatch failed: ' . $e->getMessage());
-        }
+        // Send order emails after the HTTP response has already gone back to
+        // the customer. A detached shell subprocess was used previously to
+        // avoid blocking on SMTP, but that doesn't reliably survive a Docker
+        // container's process lifecycle in production — the orphaned
+        // background process can be killed before it finishes, so the email
+        // silently never sends. Calling it synchronously instead works
+        // reliably, but real SMTP round-trips from this host are slow enough
+        // (two Gmail sends can take ~40s combined) that checkout itself would
+        // hang. dispatch()->afterResponse() runs in this same process — no
+        // subprocess, no queue worker needed — but only *after* the response
+        // is flushed, so checkout stays fast either way.
+        $orderId = (int) $order->id;
+        dispatch(function () use ($orderId) {
+            try {
+                Artisan::call('order:send-emails', ['orderId' => $orderId]);
+            } catch (\Throwable $e) {
+                Log::warning('Order email dispatch failed: ' . $e->getMessage());
+            }
+        })->afterResponse();
 
         return $order;
     }
