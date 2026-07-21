@@ -43,6 +43,39 @@ Route::get('/media/{path}', function (string $path) {
     return response()->file($fullPath, ['Cache-Control' => 'public, max-age=86400']);
 })->where('path', '.*');
 
+// TEMPORARY mail diagnostic — remove after debugging. Returns the real SMTP
+// error and how long the attempt took, so we can tell a network/port block
+// (long timeout) from an auth/config failure (fast error).
+Route::get('/_mailtest', function (\Illuminate\Http\Request $request) {
+    $to    = $request->query('to', config('mail.admin_address') ?: config('mail.from.address'));
+    $start = microtime(true);
+    try {
+        \Illuminate\Support\Facades\Mail::raw('XTREMEFIT mail diagnostic — if you got this, SMTP works.', function ($m) use ($to) {
+            $m->to($to)->subject('XTREMEFIT mail test');
+        });
+        return response()->json([
+            'ok'       => true,
+            'sent_to'  => $to,
+            'seconds'  => round(microtime(true) - $start, 2),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'ok'       => false,
+            'seconds'  => round(microtime(true) - $start, 2),
+            'error'    => get_class($e),
+            'message'  => $e->getMessage(),
+            'config'   => [
+                'mailer'     => config('mail.default'),
+                'host'       => config('mail.mailers.smtp.host'),
+                'port'       => config('mail.mailers.smtp.port'),
+                'encryption' => config('mail.mailers.smtp.encryption'),
+                'username'   => substr((string) config('mail.mailers.smtp.username'), 0, 4) . '***',
+                'from'       => config('mail.from.address'),
+            ],
+        ], 500);
+    }
+});
+
 // Public store configuration endpoints
 Route::get('/settings', [StoreSettingApiController::class, 'index']);
 Route::get('/banners',  [AnnouncementBannerApiController::class, 'index']);
