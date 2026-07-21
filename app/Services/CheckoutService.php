@@ -7,7 +7,9 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CheckoutService
 {
@@ -93,21 +95,20 @@ class CheckoutService
             $order->setRelation('user', $user);
         }
 
-        // Dispatch email sending as a background process so the HTTP response
-        // is never blocked by SMTP latency or timeouts.
+        // Send order emails synchronously, in this same process. A detached
+        // shell subprocess was used previously to avoid blocking on SMTP, but
+        // that doesn't reliably survive a Docker container's process
+        // lifecycle in production — the orphaned background process can be
+        // killed before it finishes, so the email silently never sends.
+        // QUEUE_CONNECTION=sync means a real queue wouldn't give true async
+        // delivery here either, so sending inline is both simpler and
+        // actually reliable. SendOrderEmails already catches per-email
+        // failures internally and only logs them, so this never blocks
+        // checkout on an SMTP problem.
         try {
-            $php     = PHP_BINARY;
-            $artisan = base_path('artisan');
-            $id      = (int) $order->id;
-
-            if (PHP_OS_FAMILY === 'Windows') {
-                // start /B launches detached; cmd.exe exits immediately
-                pclose(popen("start /B \"\" \"{$php}\" \"{$artisan}\" order:send-emails {$id} > NUL 2>&1", 'r'));
-            } else {
-                exec("\"{$php}\" \"{$artisan}\" order:send-emails {$id} > /dev/null 2>&1 &");
-            }
+            Artisan::call('order:send-emails', ['orderId' => (int) $order->id]);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Could not dispatch email background job: ' . $e->getMessage());
+            Log::warning('Order email dispatch failed: ' . $e->getMessage());
         }
 
         return $order;
