@@ -22,7 +22,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <img src="{{ $message->embed(public_path('images/logo.jpg')) }}" alt="XTREMEFIT">
+            <img src="https://pub-8e8f9bf657834277acb8a01bfa03830e.r2.dev/brand/xtremefit-logo.jpg" alt="XTREMEFIT">
         </div>
         <div class="body">
             <h2>Thank you for your order!</h2>
