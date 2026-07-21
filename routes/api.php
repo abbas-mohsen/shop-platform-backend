@@ -43,34 +43,6 @@ Route::get('/media/{path}', function (string $path) {
     return response()->file($fullPath, ['Cache-Control' => 'public, max-age=86400']);
 })->where('path', '.*');
 
-// TEMPORARY mail diagnostic — remove after debugging. Returns the real SMTP
-// error and how long the attempt took, so we can tell a network/port block
-// (long timeout) from an auth/config failure (fast error).
-Route::get('/_mailtest', function (\Illuminate\Http\Request $request) {
-    $to    = $request->query('to', config('mail.admin_address') ?: config('mail.from.address'));
-    $start = microtime(true);
-
-    $resend = app(\App\Services\ResendService::class);
-    $payload = [
-        'from'    => config('services.resend.from'),
-        'to'      => [$to],
-        'subject' => 'XTREMEFIT mail test',
-        'html'    => '<p>XTREMEFIT mail diagnostic — if you got this, Resend works.</p>',
-    ];
-    $response = \Illuminate\Support\Facades\Http::withToken(config('services.resend.key'))
-        ->timeout(20)
-        ->post('https://api.resend.com/emails', $payload);
-
-    return response()->json([
-        'resend_configured' => $resend->isConfigured(),
-        'from'              => config('services.resend.from'),
-        'sent_to'          => $to,
-        'seconds'          => round(microtime(true) - $start, 2),
-        'status'           => $response->status(),
-        'body'             => $response->json() ?: $response->body(),
-    ], $response->successful() ? 200 : 500);
-});
-
 // Public store configuration endpoints
 Route::get('/settings', [StoreSettingApiController::class, 'index']);
 Route::get('/banners',  [AnnouncementBannerApiController::class, 'index']);
