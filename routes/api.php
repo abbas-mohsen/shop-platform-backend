@@ -103,6 +103,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/orders', [AdminOrderApiController::class, 'index']);
         Route::post('/orders/bulk-status', [AdminOrderApiController::class, 'bulkUpdateStatus']);
+        Route::get('/orders/{order}', [AdminOrderApiController::class, 'show']);
         Route::put('/orders/{order}', [AdminOrderApiController::class, 'updateStatus']);
         Route::put('/orders/{order}/cancel', [AdminOrderApiController::class, 'cancel']);
         Route::get   ('/products',              [AdminProductApiController::class, 'index']);

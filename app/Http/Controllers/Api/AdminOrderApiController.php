@@ -54,6 +54,23 @@ class AdminOrderApiController extends Controller
         return OrderResource::collection($orders);
     }
 
+    /**
+     * GET /api/admin/orders/{order}
+     *
+     * The admin order details screen previously had no endpoint to call and
+     * relied entirely on the order object being handed over in router state
+     * by the orders list, so opening the URL directly, refreshing, or using a
+     * bookmark showed "no order data available".
+     */
+    public function show(Order $order)
+    {
+        $this->authorize('view', $order);
+
+        $order->load(['user', 'items.product']);
+
+        return new OrderResource($order);
+    }
+
     public function updateStatus(Request $request, Order $order)
     {
         $this->authorize('updateStatus', $order);
