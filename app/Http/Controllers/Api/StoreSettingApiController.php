@@ -39,16 +39,20 @@ class StoreSettingApiController extends Controller
         // Editorial band
         'editorial_tag'          => 'New Collection',
         'editorial_headline'     => "Engineered\nfor Movement.",
-        'editorial_sub'          => 'Premium sportswear for every session — from the gym floor to the streets.',
+        'editorial_sub'          => 'Premium sportswear for every session, from the gym floor to the streets.',
         'editorial_cta_text'     => 'Shop the drop',
         'editorial_cta_link'     => '/products',
 
-        // Stats strip
-        'stats_orders'           => '12500',
+        // Stats strip.
+        // The numbers deliberately default to empty, not to invented figures:
+        // an unset stat falls through to the real aggregates from /api/stats,
+        // and a stat with no real value behind it is not displayed at all.
+        // Only set these if you want to override the live counts.
+        'stats_orders'           => '',
         'stats_orders_label'     => 'Orders shipped',
-        'stats_products'         => '500',
+        'stats_products'         => '',
         'stats_products_label'   => 'Products',
-        'stats_customers'        => '8200',
+        'stats_customers'        => '',
         'stats_customers_label'  => 'Happy customers',
 
         // Trust strip
@@ -72,6 +76,9 @@ class StoreSettingApiController extends Controller
 
         // Privacy Policy page content
         'privacy_policy' => '',
+
+        // Terms of Service page content
+        'terms_of_service' => '',
     ];
 
     /**
@@ -142,7 +149,10 @@ class StoreSettingApiController extends Controller
         }
 
         $request->validate([
-            'image' => ['required', 'file', 'image', 'max:5120'],
+            // 'image' alone permits SVG, which is a script-carrying document
+            // format. Pin the raster types the storefront actually displays,
+            // matching what product uploads already enforce.
+            'image' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         $path = $request->file('image')->store('hero', config('filesystems.media_disk'));
@@ -242,7 +252,10 @@ class StoreSettingApiController extends Controller
 
         $request->validate([
             'index' => ['required', 'integer', 'min:0', 'max:2'],
-            'image' => ['required', 'file', 'image', 'max:5120'],
+            // 'image' alone permits SVG, which is a script-carrying document
+            // format. Pin the raster types the storefront actually displays,
+            // matching what product uploads already enforce.
+            'image' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         $index = (int) $request->input('index');

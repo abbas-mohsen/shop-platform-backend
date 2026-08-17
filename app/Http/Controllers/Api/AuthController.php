@@ -12,6 +12,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 
@@ -50,6 +51,14 @@ class AuthController extends Controller
         $user = User::where('email', $data['email'])->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
+            // Security event. Logged with the source IP so repeated failures can
+            // be traced after the fact; the response stays deliberately generic
+            // so it still reveals nothing about whether the email exists.
+            Log::warning('auth.login_failed', [
+                'email' => $data['email'],
+                'ip'    => $request->ip(),
+            ]);
+
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
@@ -90,6 +99,22 @@ class AuthController extends Controller
         $user->update([
             'password' => Hash::make($data['password']),
         ]);
+
+        // Evict every other session. If someone changes their password because
+        // the account was compromised, leaving the attacker's existing token
+        // valid defeats the entire point of the change. The token used for this
+        // request is kept so the user is not logged out of their own device.
+        //
+        // currentAccessToken() is a TransientToken under actingAs() in tests and
+        // has no id, so fall back to revoking everything rather than crashing.
+        $current   = $request->user()->currentAccessToken();
+        $currentId = $current instanceof \Laravel\Sanctum\PersonalAccessToken ? $current->id : null;
+
+        $tokens = $user->tokens();
+        if ($currentId !== null) {
+            $tokens->where('id', '!=', $currentId);
+        }
+        $tokens->delete();
 
         return response()->json(['message' => 'Password updated successfully.']);
     }

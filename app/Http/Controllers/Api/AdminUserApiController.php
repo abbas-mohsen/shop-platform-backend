@@ -7,6 +7,7 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AdminUserApiController extends Controller
 {
@@ -82,9 +83,21 @@ class AdminUserApiController extends Controller
             'role' => ['required', 'in:' . implode(',', User::ROLES)],
         ]);
 
+        $previousRole = $user->role;
+
         $user->update([
             'role'     => $data['role'],
             'is_admin' => in_array($data['role'], [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN]),
+        ]);
+
+        // Security event: privilege changes are the single most useful thing to
+        // have in a log when working out what happened after an incident.
+        Log::warning('auth.role_changed', [
+            'target_user_id' => $user->id,
+            'from'           => $previousRole,
+            'to'             => $data['role'],
+            'changed_by'     => $currentUser->id,
+            'ip'             => $request->ip(),
         ]);
 
         return response()->json([

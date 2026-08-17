@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\ChatApiController;
 use App\Http\Controllers\Api\ReviewApiController;
 use App\Http\Controllers\Api\AdminUserApiController;
 use App\Http\Controllers\Api\StoreSettingApiController;
+use App\Http\Controllers\Api\StoreStatsApiController;
 use App\Http\Controllers\Api\AnnouncementBannerApiController;
 use App\Http\Controllers\Api\FaqApiController;
 use App\Http\Controllers\Api\CouponApiController;
@@ -46,6 +47,7 @@ Route::get('/media/{path}', function (string $path) {
 // Public store configuration endpoints
 Route::get('/settings', [StoreSettingApiController::class, 'index']);
 Route::get('/banners',  [AnnouncementBannerApiController::class, 'index']);
+Route::get('/stats',    [StoreStatsApiController::class, 'index']);
 
 Route::get('/products', [ProductApiController::class, 'index']);
 Route::get('/products/{product}', [ProductApiController::class, 'show']);
@@ -69,7 +71,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/profile',  [AuthController::class, 'updateProfile']);
     Route::put('/user/password', [AuthController::class, 'updatePassword']);
 
-    Route::post('/chat', [ChatApiController::class, 'chat']);
+    // Rate limited to cap OpenAI spend: every call bills against our key, so an
+    // uncapped endpoint is a billing exposure, not just an abuse one. 20/min is
+    // far above natural conversation pace and well below what a script can cost.
+    Route::middleware('throttle:20,1')->post('/chat', [ChatApiController::class, 'chat']);
 
     // Virtual try-on — rate limited to control FASHN API costs (5 generations/min per user)
     Route::middleware('throttle:5,1')->post(
